@@ -376,6 +376,7 @@ export default function TopMesh({
           color={color}
           roughness={0.7}
           metalness={0.05}
+          side={THREE.DoubleSide}
         />
         {!hasRoundedCorners && <Edges threshold={15} color="#8B7355" />}
       </mesh>
