@@ -1,62 +1,69 @@
 # Work Notes - Parametric Table Builder
 
-## Current Session Focus
-Implementing table styles and stretchers for **dining tables**.
+## Current State
+All core table geometry is working. Deployed to Vercel via GitHub.
 
-## Table Styles (5 options)
-- Shaker - tapered legs, clean lines
-- **Mid-Century Modern** - splayed legs toward corners, tapered from top, compound angle aprons, rounded corner top
-- Farmhouse - beefy square legs, thick top
-- Japandi - box stretchers, square legs
-- **Trestle** - implemented with foot/leg/head/stretcher assembly
+## Completed Features
 
-## Stretcher Styles (2 options, for non-trestle tables)
-| Style | Status | Notes |
-|-------|--------|-------|
-| Box | Done | 4 stretchers, centered on legs |
-| H | Done | Front/back + center crossbar |
+### Table Styles (5 options)
+- [x] Shaker - tapered legs, clean lines
+- [x] **Mid-Century Modern** - splayed legs with compound angle aprons
+- [x] Farmhouse - turned legs, thick top
+- [x] Japandi - square legs, box stretchers
+- [x] **Trestle** - foot/leg/head/stretcher assembly
 
-## Trestle Table Structure (Complete)
-- Foot: beveled top (flat center, slopes to ends), dado underneath
-- Leg: rectangular, flush with foot width
-- Head: mirror of foot (flat top, beveled bottom)
-- Stretcher: connects leg assemblies at 55% height
+### Leg Types
+- [x] Square
+- [x] Tapered (2-sided and 4-sided)
+- [x] Turned (with pommel)
+- [x] **Splayed** (with taper and compound angles)
+
+### Stretcher Styles
+- [x] Box - 4 stretchers centered on legs
+- [x] H - Front/back + center crossbar
+
+### Other
+- [x] GizmoViewcube for view orientation
+- [x] Explosion view with animation
+- [x] Multiple wood species with colors
 
 ---
 
 ## ROADMAP - Future Features
 
-### Top Shapes (Not Yet Implemented)
-- [ ] Rectangular (current default)
+### Top Shapes
 - [ ] Rectangular with rounded corners (for mid-century)
 - [ ] Circular
 - [ ] Elliptical
 
-### Mid-Century Modern (In Progress)
-- [ ] Splayed legs angled toward corners
-- [ ] Square legs tapered from very top
-- [ ] Compound angle apron cuts to mate with splayed legs
-- [ ] Rounded corner tabletop
-
-### Joinery (Later)
+### Joinery
 - [ ] Mortise and tenon visualization
-- [ ] Cut list generation
-- [ ] Shop drawings
+- [ ] Cut list generation with real calculations
+- [ ] Shop drawings / DXF export
+
+### UI/UX
+- [ ] Style preset quick-select buttons
+- [ ] Dimension labels on 3D model
+- [ ] Save/load designs
 
 ---
 
 ## Key Files
-- `src/components/preview/StretcherMesh.tsx` - Stretcher rendering
-- `src/components/preview/TrestleMesh.tsx` - Trestle base rendering
-- `src/components/preview/LegMesh.tsx` - Leg rendering
-- `src/components/preview/ApronMesh.tsx` - Apron rendering
-- `src/components/preview/TopMesh.tsx` - Tabletop rendering
-- `src/constants/stylePresets.ts` - Style configurations
+- `src/components/preview/TableModel.tsx` - Main assembly, leg face normal computation
+- `src/components/preview/ApronMesh.tsx` - Compound angle apron geometry
+- `src/components/preview/LegMesh.tsx` - All leg styles including splayed
+- `src/components/preview/TrestleMesh.tsx` - Trestle base
+- `docs/JOINERY_CONVENTIONS.md` - Compound angle math documentation
 
 ## Session Log
 
 ### 2026-02-03
 - Implemented trestle table style with proper foot/leg/head/stretcher
 - Fixed stretcher positioning (centered on legs, no mortise penetration)
-- Cleaned up Japandi box stretchers
-- Starting mid-century modern implementation
+- **SOLVED: Compound angle geometry for splayed legs**
+  - Key insight: compute actual leg face normals from geometry, not analytical formulas
+  - See `docs/JOINERY_CONVENTIONS.md` for full documentation
+- Added GizmoViewcube for view orientation
+- Set up Git/GitHub repo: https://github.com/inexile14/furniture-builder
+- Added CLAUDE.md for future Claude Code context
+- Deployed to Vercel
