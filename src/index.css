@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-workshop-100 text-workshop-900;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-workshop-200 rounded;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-workshop-400 rounded hover:bg-workshop-500;
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full px-3 py-2 bg-white border border-workshop-300 rounded-md
+           text-workshop-900 text-sm font-mono
+           focus:outline-none focus:ring-2 focus:ring-workshop-500 focus:border-transparent
+           transition-all duration-150;
+  }
+
+  .input-field:disabled {
+    @apply bg-workshop-100 text-workshop-500 cursor-not-allowed;
+  }
+
+  .input-field.error {
+    @apply border-red-400 focus:ring-red-400;
+  }
+
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium text-sm
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-workshop-700 text-white
+           hover:bg-workshop-800
+           focus:ring-workshop-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-workshop-200 text-workshop-800
+           hover:bg-workshop-300
+           focus:ring-workshop-400;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-workshop-700
+           hover:bg-workshop-200
+           focus:ring-workshop-400;
+  }
+
+  .panel {
+    @apply bg-white rounded-lg shadow-sm border border-workshop-200;
+  }
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-workshop-200 font-semibold text-workshop-800;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-workshop-600 mb-2;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-workshop-700 mb-1;
+  }
+
+  .hint {
+    @apply text-xs text-workshop-500 mt-1;
+  }
+
+  .error-text {
+    @apply text-xs text-red-600 mt-1;
+  }
+
+  /* Control panel section styling */
+  .control-section {
+    @apply bg-white rounded-lg border border-workshop-200 p-4 shadow-sm;
+  }
+
+  .control-section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-workshop-600 mb-3;
+  }
+
+  /* Input label styling */
+  .input-label {
+    @apply block text-sm font-medium text-workshop-700 mb-1;
+  }
+
+  /* Style selector cards */
+  .style-card {
+    @apply bg-workshop-50 border border-workshop-200 rounded-lg p-3 cursor-pointer
+           transition-all duration-150 hover:border-workshop-400 hover:bg-workshop-100;
+  }
+
+  .style-card.active {
+    @apply border-workshop-600 bg-workshop-100 ring-2 ring-workshop-500/20;
+  }
+
+  /* Slider styling */
+  input[type="range"] {
+    @apply w-full h-2 bg-workshop-200 rounded-lg appearance-none cursor-pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 bg-workshop-600 rounded-full cursor-pointer
+           hover:bg-workshop-700 transition-colors;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply w-4 h-4 bg-workshop-600 rounded-full cursor-pointer border-0
+           hover:bg-workshop-700 transition-colors;
+  }
+
+  input[type="range"]:focus {
+    @apply outline-none;
+  }
+
+  input[type="range"]:focus::-webkit-slider-thumb {
+    @apply ring-2 ring-workshop-500 ring-offset-2;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
