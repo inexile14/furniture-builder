@@ -62,17 +62,8 @@ function createRoundedRectPoints(
 }
 
 /**
- * Create a chamfered table top geometry.
- * Chamfer can be on top edge, bottom edge, or both.
- *
- * For a bottom chamfer, the cross-section looks like:
- *     _______________  <- top surface (full size)
- *    |               |
- *    |               |  <- vertical side
- *     \             /   <- chamfer face (angled)
- *      \___________|    <- bottom surface (inset)
- *
- * The corners have triangular chamfer faces where the edge chamfers meet.
+ * Create a chamfered table top geometry using THREE.js ExtrudeGeometry with bevel.
+ * This handles corners automatically.
  */
 function createChamferedTopGeometry(
   length: number,
@@ -83,185 +74,79 @@ function createChamferedTopGeometry(
   chamferAngle: number,
   _cornerRadius: number
 ): THREE.BufferGeometry {
-  const hL = length / 2  // half length
-  const hW = width / 2   // half width
-  const hT = thickness / 2  // half thickness
+  const hL = length / 2
+  const hW = width / 2
 
-  // Calculate chamfer dimensions based on angle
+  // Calculate chamfer dimensions
   const angleRad = (chamferAngle * Math.PI) / 180
-  const chamferV = Math.min(chamferSize * Math.tan(angleRad), hT * 0.9)  // vertical
-  const chamferH = chamferV / Math.tan(angleRad)  // horizontal
+  const chamferV = Math.min(chamferSize * Math.tan(angleRad), thickness * 0.45)
+  const chamferH = chamferV / Math.tan(angleRad)
 
   const doTop = chamferEdge === 'top' || chamferEdge === 'both'
   const doBottom = chamferEdge === 'bottom' || chamferEdge === 'both'
 
-  // Key Y levels
-  const topY = hT
-  const botY = -hT
-  const topChamferY = doTop ? topY - chamferV : topY
-  const botChamferY = doBottom ? botY + chamferV : botY
+  // Create the 2D shape (rectangle)
+  const shape = new THREE.Shape()
+  shape.moveTo(-hL, -hW)
+  shape.lineTo(hL, -hW)
+  shape.lineTo(hL, hW)
+  shape.lineTo(-hL, hW)
+  shape.closePath()
 
-  // Insets for chamfered surfaces
-  const topIn = doTop ? chamferH : 0
-  const botIn = doBottom ? chamferH : 0
+  // For bottom-only chamfer, we extrude with bevel on one side
+  // For top-only, we flip the geometry
+  // For both, we use bevel on both sides
 
-  const vertices: number[] = []
-  const indices: number[] = []
-  let vi = 0
-
-  function addQuad(p0: number[], p1: number[], p2: number[], p3: number[]) {
-    vertices.push(...p0, ...p1, ...p2, ...p3)
-    indices.push(vi, vi + 1, vi + 2)
-    indices.push(vi, vi + 2, vi + 3)
-    vi += 4
+  if (doBottom && !doTop) {
+    // Bottom chamfer only - extrude with bevel, then flip
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: thickness - chamferV,
+      bevelEnabled: true,
+      bevelThickness: chamferV,
+      bevelSize: chamferH,
+      bevelSegments: 1,
+      bevelOffset: 0
+    }
+    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
+    // Rotate so Y is up, and position so it's centered
+    geo.rotateX(-Math.PI / 2)
+    geo.translate(0, thickness / 2 - chamferV / 2, 0)
+    return geo
+  } else if (doTop && !doBottom) {
+    // Top chamfer only - extrude with bevel, positioned differently
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: thickness - chamferV,
+      bevelEnabled: true,
+      bevelThickness: chamferV,
+      bevelSize: chamferH,
+      bevelSegments: 1,
+      bevelOffset: 0
+    }
+    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
+    geo.rotateX(-Math.PI / 2)
+    geo.rotateY(Math.PI)  // Flip to put bevel on top
+    geo.translate(0, -thickness / 2 + chamferV / 2, 0)
+    return geo
+  } else if (doTop && doBottom) {
+    // Both chamfers - use bevel on both sides
+    // THREE.js bevel only works on one side, so we need to do this manually
+    // or accept bevel on both ends of the extrusion
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: thickness - 2 * chamferV,
+      bevelEnabled: true,
+      bevelThickness: chamferV,
+      bevelSize: chamferH,
+      bevelSegments: 1,
+      bevelOffset: 0
+    }
+    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
+    geo.rotateX(-Math.PI / 2)
+    geo.translate(0, 0, 0)
+    return geo
   }
 
-  // =========================================================================
-  // TOP SURFACE (may be inset if top chamfer)
-  // =========================================================================
-  addQuad(
-    [-hL + topIn, topY, -hW + topIn],
-    [hL - topIn, topY, -hW + topIn],
-    [hL - topIn, topY, hW - topIn],
-    [-hL + topIn, topY, hW - topIn]
-  )
-
-  // =========================================================================
-  // BOTTOM SURFACE (may be inset if bottom chamfer)
-  // =========================================================================
-  addQuad(
-    [-hL + botIn, botY, hW - botIn],
-    [hL - botIn, botY, hW - botIn],
-    [hL - botIn, botY, -hW + botIn],
-    [-hL + botIn, botY, -hW + botIn]
-  )
-
-  // =========================================================================
-  // FRONT SIDE (-Z)
-  // =========================================================================
-  // Top chamfer (if any)
-  if (doTop) {
-    addQuad(
-      [-hL + topIn, topY, -hW + topIn],
-      [-hL, topChamferY, -hW],
-      [hL, topChamferY, -hW],
-      [hL - topIn, topY, -hW + topIn]
-    )
-  }
-
-  // Vertical middle section
-  addQuad(
-    [-hL, doTop ? topChamferY : topY, -hW],
-    [-hL, doBottom ? botChamferY : botY, -hW],
-    [hL, doBottom ? botChamferY : botY, -hW],
-    [hL, doTop ? topChamferY : topY, -hW]
-  )
-
-  // Bottom chamfer (if any)
-  if (doBottom) {
-    addQuad(
-      [-hL, botChamferY, -hW],
-      [-hL + botIn, botY, -hW + botIn],
-      [hL - botIn, botY, -hW + botIn],
-      [hL, botChamferY, -hW]
-    )
-  }
-
-  // =========================================================================
-  // BACK SIDE (+Z)
-  // =========================================================================
-  if (doTop) {
-    addQuad(
-      [hL - topIn, topY, hW - topIn],
-      [hL, topChamferY, hW],
-      [-hL, topChamferY, hW],
-      [-hL + topIn, topY, hW - topIn]
-    )
-  }
-
-  addQuad(
-    [hL, doTop ? topChamferY : topY, hW],
-    [hL, doBottom ? botChamferY : botY, hW],
-    [-hL, doBottom ? botChamferY : botY, hW],
-    [-hL, doTop ? topChamferY : topY, hW]
-  )
-
-  if (doBottom) {
-    addQuad(
-      [hL, botChamferY, hW],
-      [hL - botIn, botY, hW - botIn],
-      [-hL + botIn, botY, hW - botIn],
-      [-hL, botChamferY, hW]
-    )
-  }
-
-  // =========================================================================
-  // LEFT SIDE (-X)
-  // =========================================================================
-  if (doTop) {
-    addQuad(
-      [-hL + topIn, topY, hW - topIn],
-      [-hL, topChamferY, hW],
-      [-hL, topChamferY, -hW],
-      [-hL + topIn, topY, -hW + topIn]
-    )
-  }
-
-  addQuad(
-    [-hL, doTop ? topChamferY : topY, hW],
-    [-hL, doBottom ? botChamferY : botY, hW],
-    [-hL, doBottom ? botChamferY : botY, -hW],
-    [-hL, doTop ? topChamferY : topY, -hW]
-  )
-
-  if (doBottom) {
-    addQuad(
-      [-hL, botChamferY, hW],
-      [-hL + botIn, botY, hW - botIn],
-      [-hL + botIn, botY, -hW + botIn],
-      [-hL, botChamferY, -hW]
-    )
-  }
-
-  // =========================================================================
-  // RIGHT SIDE (+X)
-  // =========================================================================
-  if (doTop) {
-    addQuad(
-      [hL - topIn, topY, -hW + topIn],
-      [hL, topChamferY, -hW],
-      [hL, topChamferY, hW],
-      [hL - topIn, topY, hW - topIn]
-    )
-  }
-
-  addQuad(
-    [hL, doTop ? topChamferY : topY, -hW],
-    [hL, doBottom ? botChamferY : botY, -hW],
-    [hL, doBottom ? botChamferY : botY, hW],
-    [hL, doTop ? topChamferY : topY, hW]
-  )
-
-  if (doBottom) {
-    addQuad(
-      [hL, botChamferY, -hW],
-      [hL - botIn, botY, -hW + botIn],
-      [hL - botIn, botY, hW - botIn],
-      [hL, botChamferY, hW]
-    )
-  }
-
-  // Corner vertices should match between adjacent chamfer faces:
-  // Front chamfer left corner: [-hL + botIn, botY, -hW + botIn]
-  // Left chamfer front corner: [-hL + botIn, botY, -hW + botIn]
-  // These match, so the geometry should be watertight.
-
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-  geometry.setIndex(indices)
-  geometry.computeVertexNormals()
-
-  return geometry
+  // No chamfer - simple box
+  return new THREE.BoxGeometry(length, thickness, width)
 }
 
 export default function TopMesh({
