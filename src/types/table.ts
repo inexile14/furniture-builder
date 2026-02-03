@@ -14,7 +14,9 @@ export type LegStyle = 'square' | 'tapered' | 'turned' | 'splayed'
 
 export type TurnProfile = 'baluster' | 'vase' | 'cylinder' | 'spool' | 'cabriole'
 
-export type EdgeProfile = 'square' | 'eased' | 'beveled' | 'bullnose' | 'ogee' | 'chamfered'
+export type EdgeProfile = 'square' | 'bullnose' | 'ogee' | 'chamfered'
+
+export type ChamferEdge = 'top' | 'bottom' | 'both'
 
 export type ApronProfile = 'straight' | 'arched' | 'scalloped' | 'serpentine'
 
@@ -47,7 +49,6 @@ export interface TopParams {
     right: number
   }
   edgeProfile: EdgeProfile
-  bevelAngle?: number
   cornerRadius?: number  // Radius for rounded corners (0 = sharp corners)
   breadboardEnds: boolean
   breadboard?: {
@@ -56,6 +57,10 @@ export interface TopParams {
     tongueDepth: number
     tongueThickness: number
   }
+  // Chamfer parameters (when edgeProfile === 'chamfered')
+  chamferEdge?: ChamferEdge  // Which edge(s) to chamfer: 'top', 'bottom', or 'both'
+  chamferSize?: number       // Size of chamfer in inches (default 0.25)
+  chamferAngle?: number      // Angle in degrees (default 45)
 }
 
 // =============================================================================

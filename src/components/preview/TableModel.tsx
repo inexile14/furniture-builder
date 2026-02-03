@@ -237,6 +237,9 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
           color={woodColor}
           edgeProfile={params.top.edgeProfile}
           cornerRadius={params.top.cornerRadius}
+          chamferEdge={params.top.chamferEdge}
+          chamferSize={params.top.chamferSize}
+          chamferAngle={params.top.chamferAngle}
         />
       </animated.group>
 

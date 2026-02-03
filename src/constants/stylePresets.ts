@@ -19,7 +19,7 @@ export const SHAKER_PRESET: StylePreset = {
   defaults: {
     top: {
       thickness: 1.0,  // Authentic: 1" top
-      edgeProfile: 'eased',
+      edgeProfile: 'square',
       breadboardEnds: false,
       overhang: { front: 0.75, back: 0.75, left: 0.75, right: 0.75 }
     },
@@ -83,8 +83,10 @@ export const MID_CENTURY_PRESET: StylePreset = {
   defaults: {
     top: {
       thickness: 0.75,
-      edgeProfile: 'beveled',
-      bevelAngle: 20,
+      edgeProfile: 'chamfered',
+      chamferEdge: 'bottom',  // Under-chamfer for MCM floating look
+      chamferSize: 0.375,
+      chamferAngle: 30,  // Shallower angle for MCM
       cornerRadius: 4,  // Heavy rounded corners for MCM look
       breadboardEnds: false,
       overhang: { front: 1.0, back: 1.0, left: 1.0, right: 1.0 }
@@ -148,7 +150,7 @@ export const FARMHOUSE_PRESET: StylePreset = {
   defaults: {
     top: {
       thickness: 2,  // Gold standard: 2" thick solid top
-      edgeProfile: 'eased',
+      edgeProfile: 'square',
       breadboardEnds: true,
       breadboard: {
         width: 3,
@@ -280,7 +282,7 @@ export const TRESTLE_PRESET: StylePreset = {
   defaults: {
     top: {
       thickness: 1.25,
-      edgeProfile: 'eased',
+      edgeProfile: 'square',
       breadboardEnds: true,
       breadboard: {
         width: 2.5,

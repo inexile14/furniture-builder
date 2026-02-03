@@ -5,7 +5,7 @@
 import { useState, ReactNode } from 'react'
 import { useTable } from '../../context/TableContext'
 import { STYLE_PRESETS, TABLE_TYPE_LIMITS, WOOD_SPECIES } from '../../constants'
-import type { Style, TableType } from '../../types'
+import type { Style, TableType, ChamferEdge } from '../../types'
 import NumberInput from './NumberInput'
 
 // =============================================================================
@@ -195,13 +195,47 @@ export default function ControlPanel() {
               className="input-field"
             >
               <option value="square">Square</option>
-              <option value="eased">Eased</option>
-              <option value="beveled">Beveled</option>
+              <option value="chamfered">Chamfered</option>
               <option value="bullnose">Bullnose</option>
               <option value="ogee">Ogee</option>
-              <option value="chamfered">Chamfered</option>
             </select>
           </div>
+
+          {/* Chamfer Controls */}
+          {params.top.edgeProfile === 'chamfered' && (
+            <>
+              <div>
+                <label className="input-label">Chamfer Location</label>
+                <select
+                  value={params.top.chamferEdge || 'bottom'}
+                  onChange={(e) => dispatch({ type: 'SET_TOP_PARAM', key: 'chamferEdge', value: e.target.value as ChamferEdge })}
+                  className="input-field"
+                >
+                  <option value="bottom">Bottom Edge (under-chamfer)</option>
+                  <option value="top">Top Edge</option>
+                  <option value="both">Both Edges</option>
+                </select>
+              </div>
+              <NumberInput
+                label="Chamfer Size"
+                value={params.top.chamferSize || 0.25}
+                onChange={(v) => dispatch({ type: 'SET_TOP_PARAM', key: 'chamferSize', value: v })}
+                min={0.125}
+                max={0.75}
+                step={0.0625}
+                unit="in"
+              />
+              <NumberInput
+                label="Chamfer Angle"
+                value={params.top.chamferAngle || 45}
+                onChange={(v) => dispatch({ type: 'SET_TOP_PARAM', key: 'chamferAngle', value: v })}
+                min={30}
+                max={60}
+                step={5}
+                unit="deg"
+              />
+            </>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

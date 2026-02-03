@@ -254,11 +254,14 @@ function applyStylePreset(params: TableParams, preset: StylePreset): TableParams
     style: preset.name,
     top: {
       thickness: preset.defaults.top?.thickness || 1,
-      edgeProfile: preset.defaults.top?.edgeProfile || 'eased',
+      edgeProfile: preset.defaults.top?.edgeProfile || 'square',
       cornerRadius: preset.defaults.top?.cornerRadius,
       breadboardEnds: preset.defaults.top?.breadboardEnds || false,
       breadboard: preset.defaults.top?.breadboard,
-      overhang: preset.defaults.top?.overhang || { front: 0.75, back: 0.75, left: 0.75, right: 0.75 }
+      overhang: preset.defaults.top?.overhang || { front: 0.75, back: 0.75, left: 0.75, right: 0.75 },
+      chamferEdge: preset.defaults.top?.chamferEdge,
+      chamferSize: preset.defaults.top?.chamferSize,
+      chamferAngle: preset.defaults.top?.chamferAngle
     },
     legs: {
       style: preset.defaults.legs?.style || 'square',
