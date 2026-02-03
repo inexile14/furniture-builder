@@ -64,6 +64,15 @@ function createRoundedRectPoints(
 /**
  * Create a chamfered table top geometry.
  * Chamfer can be on top edge, bottom edge, or both.
+ *
+ * For a bottom chamfer, the cross-section looks like:
+ *     _______________  <- top surface (full size)
+ *    |               |
+ *    |               |  <- vertical side
+ *     \             /   <- chamfer face (angled)
+ *      \___________|    <- bottom surface (inset)
+ *
+ * The corners have triangular chamfer faces where the edge chamfers meet.
  */
 function createChamferedTopGeometry(
   length: number,
@@ -74,293 +83,178 @@ function createChamferedTopGeometry(
   chamferAngle: number,
   _cornerRadius: number
 ): THREE.BufferGeometry {
-  const halfLength = length / 2
-  const halfWidth = width / 2
-  const halfThickness = thickness / 2
+  const hL = length / 2  // half length
+  const hW = width / 2   // half width
+  const hT = thickness / 2  // half thickness
 
   // Calculate chamfer dimensions based on angle
-  // chamferSize is the horizontal distance (visible from top/bottom)
   const angleRad = (chamferAngle * Math.PI) / 180
-  const chamferVertical = chamferSize * Math.tan(angleRad)
-
-  // Clamp chamfer to not exceed half the thickness
-  const maxChamferVertical = halfThickness * 0.9
-  const actualChamferVertical = Math.min(chamferVertical, maxChamferVertical)
-  const actualChamferHorizontal = actualChamferVertical / Math.tan(angleRad)
-
-  const vertices: number[] = []
-  const indices: number[] = []
-  let vertexIndex = 0
-
-  // Helper to add a quad (two triangles)
-  function addQuad(
-    p0: [number, number, number],
-    p1: [number, number, number],
-    p2: [number, number, number],
-    p3: [number, number, number]
-  ) {
-    vertices.push(...p0, ...p1, ...p2, ...p3)
-    indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2)
-    indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 3)
-    vertexIndex += 4
-  }
+  const chamferV = Math.min(chamferSize * Math.tan(angleRad), hT * 0.9)  // vertical
+  const chamferH = chamferV / Math.tan(angleRad)  // horizontal
 
   const doTop = chamferEdge === 'top' || chamferEdge === 'both'
   const doBottom = chamferEdge === 'bottom' || chamferEdge === 'both'
 
-  // Calculate Y positions for top and bottom surfaces
-  const topY = halfThickness
-  const bottomY = -halfThickness
+  // Key Y levels
+  const topY = hT
+  const botY = -hT
+  const topChamferY = doTop ? topY - chamferV : topY
+  const botChamferY = doBottom ? botY + chamferV : botY
 
-  // Chamfer insets
-  const topChamferY = doTop ? topY - actualChamferVertical : topY
-  const bottomChamferY = doBottom ? bottomY + actualChamferVertical : bottomY
-  const topInset = doTop ? actualChamferHorizontal : 0
-  const bottomInset = doBottom ? actualChamferHorizontal : 0
+  // Insets for chamfered surfaces
+  const topIn = doTop ? chamferH : 0
+  const botIn = doBottom ? chamferH : 0
 
-  // TOP FACE
+  const vertices: number[] = []
+  const indices: number[] = []
+  let vi = 0
+
+  function addQuad(p0: number[], p1: number[], p2: number[], p3: number[]) {
+    vertices.push(...p0, ...p1, ...p2, ...p3)
+    indices.push(vi, vi + 1, vi + 2)
+    indices.push(vi, vi + 2, vi + 3)
+    vi += 4
+  }
+
+  // =========================================================================
+  // TOP SURFACE (may be inset if top chamfer)
+  // =========================================================================
   addQuad(
-    [-halfLength + topInset, topY, -halfWidth + topInset],
-    [halfLength - topInset, topY, -halfWidth + topInset],
-    [halfLength - topInset, topY, halfWidth - topInset],
-    [-halfLength + topInset, topY, halfWidth - topInset]
+    [-hL + topIn, topY, -hW + topIn],
+    [hL - topIn, topY, -hW + topIn],
+    [hL - topIn, topY, hW - topIn],
+    [-hL + topIn, topY, hW - topIn]
   )
 
-  // BOTTOM FACE
+  // =========================================================================
+  // BOTTOM SURFACE (may be inset if bottom chamfer)
+  // =========================================================================
   addQuad(
-    [-halfLength + bottomInset, bottomY, halfWidth - bottomInset],
-    [halfLength - bottomInset, bottomY, halfWidth - bottomInset],
-    [halfLength - bottomInset, bottomY, -halfWidth + bottomInset],
-    [-halfLength + bottomInset, bottomY, -halfWidth + bottomInset]
+    [-hL + botIn, botY, hW - botIn],
+    [hL - botIn, botY, hW - botIn],
+    [hL - botIn, botY, -hW + botIn],
+    [-hL + botIn, botY, -hW + botIn]
   )
 
+  // =========================================================================
   // FRONT SIDE (-Z)
-  if (doTop && doBottom) {
-    // Top chamfer
+  // =========================================================================
+  // Top chamfer (if any)
+  if (doTop) {
     addQuad(
-      [-halfLength + topInset, topY, -halfWidth + topInset],
-      [-halfLength, topChamferY, -halfWidth],
-      [halfLength, topChamferY, -halfWidth],
-      [halfLength - topInset, topY, -halfWidth + topInset]
-    )
-    // Vertical side
-    addQuad(
-      [-halfLength, topChamferY, -halfWidth],
-      [-halfLength, bottomChamferY, -halfWidth],
-      [halfLength, bottomChamferY, -halfWidth],
-      [halfLength, topChamferY, -halfWidth]
-    )
-    // Bottom chamfer
-    addQuad(
-      [-halfLength, bottomChamferY, -halfWidth],
-      [-halfLength + bottomInset, bottomY, -halfWidth + bottomInset],
-      [halfLength - bottomInset, bottomY, -halfWidth + bottomInset],
-      [halfLength, bottomChamferY, -halfWidth]
-    )
-  } else if (doTop) {
-    // Top chamfer only
-    addQuad(
-      [-halfLength + topInset, topY, -halfWidth + topInset],
-      [-halfLength, topChamferY, -halfWidth],
-      [halfLength, topChamferY, -halfWidth],
-      [halfLength - topInset, topY, -halfWidth + topInset]
-    )
-    // Vertical side (from chamfer to bottom)
-    addQuad(
-      [-halfLength, topChamferY, -halfWidth],
-      [-halfLength, bottomY, -halfWidth],
-      [halfLength, bottomY, -halfWidth],
-      [halfLength, topChamferY, -halfWidth]
-    )
-  } else if (doBottom) {
-    // Vertical side (from top to chamfer)
-    addQuad(
-      [-halfLength, topY, -halfWidth],
-      [-halfLength, bottomChamferY, -halfWidth],
-      [halfLength, bottomChamferY, -halfWidth],
-      [halfLength, topY, -halfWidth]
-    )
-    // Bottom chamfer only
-    addQuad(
-      [-halfLength, bottomChamferY, -halfWidth],
-      [-halfLength + bottomInset, bottomY, -halfWidth + bottomInset],
-      [halfLength - bottomInset, bottomY, -halfWidth + bottomInset],
-      [halfLength, bottomChamferY, -halfWidth]
-    )
-  } else {
-    // No chamfer - simple vertical side
-    addQuad(
-      [-halfLength, topY, -halfWidth],
-      [-halfLength, bottomY, -halfWidth],
-      [halfLength, bottomY, -halfWidth],
-      [halfLength, topY, -halfWidth]
+      [-hL + topIn, topY, -hW + topIn],
+      [-hL, topChamferY, -hW],
+      [hL, topChamferY, -hW],
+      [hL - topIn, topY, -hW + topIn]
     )
   }
 
-  // BACK SIDE (+Z) - mirror of front
-  if (doTop && doBottom) {
+  // Vertical middle section
+  addQuad(
+    [-hL, doTop ? topChamferY : topY, -hW],
+    [-hL, doBottom ? botChamferY : botY, -hW],
+    [hL, doBottom ? botChamferY : botY, -hW],
+    [hL, doTop ? topChamferY : topY, -hW]
+  )
+
+  // Bottom chamfer (if any)
+  if (doBottom) {
     addQuad(
-      [halfLength - topInset, topY, halfWidth - topInset],
-      [halfLength, topChamferY, halfWidth],
-      [-halfLength, topChamferY, halfWidth],
-      [-halfLength + topInset, topY, halfWidth - topInset]
-    )
-    addQuad(
-      [halfLength, topChamferY, halfWidth],
-      [halfLength, bottomChamferY, halfWidth],
-      [-halfLength, bottomChamferY, halfWidth],
-      [-halfLength, topChamferY, halfWidth]
-    )
-    addQuad(
-      [halfLength, bottomChamferY, halfWidth],
-      [halfLength - bottomInset, bottomY, halfWidth - bottomInset],
-      [-halfLength + bottomInset, bottomY, halfWidth - bottomInset],
-      [-halfLength, bottomChamferY, halfWidth]
-    )
-  } else if (doTop) {
-    addQuad(
-      [halfLength - topInset, topY, halfWidth - topInset],
-      [halfLength, topChamferY, halfWidth],
-      [-halfLength, topChamferY, halfWidth],
-      [-halfLength + topInset, topY, halfWidth - topInset]
-    )
-    addQuad(
-      [halfLength, topChamferY, halfWidth],
-      [halfLength, bottomY, halfWidth],
-      [-halfLength, bottomY, halfWidth],
-      [-halfLength, topChamferY, halfWidth]
-    )
-  } else if (doBottom) {
-    addQuad(
-      [halfLength, topY, halfWidth],
-      [halfLength, bottomChamferY, halfWidth],
-      [-halfLength, bottomChamferY, halfWidth],
-      [-halfLength, topY, halfWidth]
-    )
-    addQuad(
-      [halfLength, bottomChamferY, halfWidth],
-      [halfLength - bottomInset, bottomY, halfWidth - bottomInset],
-      [-halfLength + bottomInset, bottomY, halfWidth - bottomInset],
-      [-halfLength, bottomChamferY, halfWidth]
-    )
-  } else {
-    addQuad(
-      [halfLength, topY, halfWidth],
-      [halfLength, bottomY, halfWidth],
-      [-halfLength, bottomY, halfWidth],
-      [-halfLength, topY, halfWidth]
+      [-hL, botChamferY, -hW],
+      [-hL + botIn, botY, -hW + botIn],
+      [hL - botIn, botY, -hW + botIn],
+      [hL, botChamferY, -hW]
     )
   }
 
+  // =========================================================================
+  // BACK SIDE (+Z)
+  // =========================================================================
+  if (doTop) {
+    addQuad(
+      [hL - topIn, topY, hW - topIn],
+      [hL, topChamferY, hW],
+      [-hL, topChamferY, hW],
+      [-hL + topIn, topY, hW - topIn]
+    )
+  }
+
+  addQuad(
+    [hL, doTop ? topChamferY : topY, hW],
+    [hL, doBottom ? botChamferY : botY, hW],
+    [-hL, doBottom ? botChamferY : botY, hW],
+    [-hL, doTop ? topChamferY : topY, hW]
+  )
+
+  if (doBottom) {
+    addQuad(
+      [hL, botChamferY, hW],
+      [hL - botIn, botY, hW - botIn],
+      [-hL + botIn, botY, hW - botIn],
+      [-hL, botChamferY, hW]
+    )
+  }
+
+  // =========================================================================
   // LEFT SIDE (-X)
-  if (doTop && doBottom) {
+  // =========================================================================
+  if (doTop) {
     addQuad(
-      [-halfLength + topInset, topY, halfWidth - topInset],
-      [-halfLength, topChamferY, halfWidth],
-      [-halfLength, topChamferY, -halfWidth],
-      [-halfLength + topInset, topY, -halfWidth + topInset]
-    )
-    addQuad(
-      [-halfLength, topChamferY, halfWidth],
-      [-halfLength, bottomChamferY, halfWidth],
-      [-halfLength, bottomChamferY, -halfWidth],
-      [-halfLength, topChamferY, -halfWidth]
-    )
-    addQuad(
-      [-halfLength, bottomChamferY, halfWidth],
-      [-halfLength + bottomInset, bottomY, halfWidth - bottomInset],
-      [-halfLength + bottomInset, bottomY, -halfWidth + bottomInset],
-      [-halfLength, bottomChamferY, -halfWidth]
-    )
-  } else if (doTop) {
-    addQuad(
-      [-halfLength + topInset, topY, halfWidth - topInset],
-      [-halfLength, topChamferY, halfWidth],
-      [-halfLength, topChamferY, -halfWidth],
-      [-halfLength + topInset, topY, -halfWidth + topInset]
-    )
-    addQuad(
-      [-halfLength, topChamferY, halfWidth],
-      [-halfLength, bottomY, halfWidth],
-      [-halfLength, bottomY, -halfWidth],
-      [-halfLength, topChamferY, -halfWidth]
-    )
-  } else if (doBottom) {
-    addQuad(
-      [-halfLength, topY, halfWidth],
-      [-halfLength, bottomChamferY, halfWidth],
-      [-halfLength, bottomChamferY, -halfWidth],
-      [-halfLength, topY, -halfWidth]
-    )
-    addQuad(
-      [-halfLength, bottomChamferY, halfWidth],
-      [-halfLength + bottomInset, bottomY, halfWidth - bottomInset],
-      [-halfLength + bottomInset, bottomY, -halfWidth + bottomInset],
-      [-halfLength, bottomChamferY, -halfWidth]
-    )
-  } else {
-    addQuad(
-      [-halfLength, topY, halfWidth],
-      [-halfLength, bottomY, halfWidth],
-      [-halfLength, bottomY, -halfWidth],
-      [-halfLength, topY, -halfWidth]
+      [-hL + topIn, topY, hW - topIn],
+      [-hL, topChamferY, hW],
+      [-hL, topChamferY, -hW],
+      [-hL + topIn, topY, -hW + topIn]
     )
   }
 
-  // RIGHT SIDE (+X) - mirror of left
-  if (doTop && doBottom) {
+  addQuad(
+    [-hL, doTop ? topChamferY : topY, hW],
+    [-hL, doBottom ? botChamferY : botY, hW],
+    [-hL, doBottom ? botChamferY : botY, -hW],
+    [-hL, doTop ? topChamferY : topY, -hW]
+  )
+
+  if (doBottom) {
     addQuad(
-      [halfLength - topInset, topY, -halfWidth + topInset],
-      [halfLength, topChamferY, -halfWidth],
-      [halfLength, topChamferY, halfWidth],
-      [halfLength - topInset, topY, halfWidth - topInset]
-    )
-    addQuad(
-      [halfLength, topChamferY, -halfWidth],
-      [halfLength, bottomChamferY, -halfWidth],
-      [halfLength, bottomChamferY, halfWidth],
-      [halfLength, topChamferY, halfWidth]
-    )
-    addQuad(
-      [halfLength, bottomChamferY, -halfWidth],
-      [halfLength - bottomInset, bottomY, -halfWidth + bottomInset],
-      [halfLength - bottomInset, bottomY, halfWidth - bottomInset],
-      [halfLength, bottomChamferY, halfWidth]
-    )
-  } else if (doTop) {
-    addQuad(
-      [halfLength - topInset, topY, -halfWidth + topInset],
-      [halfLength, topChamferY, -halfWidth],
-      [halfLength, topChamferY, halfWidth],
-      [halfLength - topInset, topY, halfWidth - topInset]
-    )
-    addQuad(
-      [halfLength, topChamferY, -halfWidth],
-      [halfLength, bottomY, -halfWidth],
-      [halfLength, bottomY, halfWidth],
-      [halfLength, topChamferY, halfWidth]
-    )
-  } else if (doBottom) {
-    addQuad(
-      [halfLength, topY, -halfWidth],
-      [halfLength, bottomChamferY, -halfWidth],
-      [halfLength, bottomChamferY, halfWidth],
-      [halfLength, topY, halfWidth]
-    )
-    addQuad(
-      [halfLength, bottomChamferY, -halfWidth],
-      [halfLength - bottomInset, bottomY, -halfWidth + bottomInset],
-      [halfLength - bottomInset, bottomY, halfWidth - bottomInset],
-      [halfLength, bottomChamferY, halfWidth]
-    )
-  } else {
-    addQuad(
-      [halfLength, topY, -halfWidth],
-      [halfLength, bottomY, -halfWidth],
-      [halfLength, bottomY, halfWidth],
-      [halfLength, topY, halfWidth]
+      [-hL, botChamferY, hW],
+      [-hL + botIn, botY, hW - botIn],
+      [-hL + botIn, botY, -hW + botIn],
+      [-hL, botChamferY, -hW]
     )
   }
+
+  // =========================================================================
+  // RIGHT SIDE (+X)
+  // =========================================================================
+  if (doTop) {
+    addQuad(
+      [hL - topIn, topY, -hW + topIn],
+      [hL, topChamferY, -hW],
+      [hL, topChamferY, hW],
+      [hL - topIn, topY, hW - topIn]
+    )
+  }
+
+  addQuad(
+    [hL, doTop ? topChamferY : topY, -hW],
+    [hL, doBottom ? botChamferY : botY, -hW],
+    [hL, doBottom ? botChamferY : botY, hW],
+    [hL, doTop ? topChamferY : topY, hW]
+  )
+
+  if (doBottom) {
+    addQuad(
+      [hL, botChamferY, -hW],
+      [hL - botIn, botY, -hW + botIn],
+      [hL - botIn, botY, hW - botIn],
+      [hL, botChamferY, hW]
+    )
+  }
+
+  // Corner vertices should match between adjacent chamfer faces:
+  // Front chamfer left corner: [-hL + botIn, botY, -hW + botIn]
+  // Left chamfer front corner: [-hL + botIn, botY, -hW + botIn]
+  // These match, so the geometry should be watertight.
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
