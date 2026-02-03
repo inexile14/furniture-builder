@@ -455,49 +455,227 @@ Movement = 36 × 0.00158 × 4 = 0.23" total (~1/8" per side)
 ## Compound Angles (Splayed Legs)
 
 When legs are splayed (angled outward), aprons must be cut at compound
-angles to meet them properly.
+angles to meet them properly. This is one of the most complex geometry
+problems in furniture design.
 
-### The Math
+### Why Simple Formulas Don't Work
 
-For a leg splayed at angle θ from vertical:
+The naive approach uses trigonometric formulas:
 
 ```
 APRON MITER ANGLE = arctan(tan(θ) × cos(45°))
 APRON BEVEL ANGLE = arctan(tan(θ) × sin(45°))
 ```
 
-For 10° leg splay:
-- Miter angle ≈ 7.1°
-- Bevel angle ≈ 7.1°
+**This approach fails** when legs are also tapered (as in mid-century modern
+furniture). The combination of:
+1. **Splay rotation** (leg tilted outward)
+2. **Taper** (leg narrower at bottom than top)
+3. **Y-adjustment** (vertices shifted to keep top/bottom faces horizontal)
 
-**Implementation:**
+...creates compound face angles that don't match any simple formula.
+
+### The Working Solution: Compute Actual Face Normals
+
+Instead of calculating angles analytically, we:
+1. Compute the actual 3D positions of leg face vertices (with all transformations)
+2. Calculate the face normal from cross product of edges
+3. Pass these normals to the apron geometry
+4. Use the plane equation to position apron end vertices
+
+### Step 1: Leg Face Normal Calculation
+
 ```typescript
-function calculateCompoundAngles(splayAngle: number): {
-  miterAngle: number
-  bevelAngle: number
-} {
-  const splayRadians = splayAngle * Math.PI / 180
-  const cornerAngle = 45 * Math.PI / 180  // 45° for rectangular table
+interface LegFaceNormals {
+  left: THREE.Vector3   // Normal of leg face at apron's left end
+  right: THREE.Vector3  // Normal of leg face at apron's right end
+}
 
-  const miterRadians = Math.atan(Math.tan(splayRadians) * Math.cos(cornerAngle))
-  const bevelRadians = Math.atan(Math.tan(splayRadians) * Math.sin(cornerAngle))
+/**
+ * Compute actual face normal for a splayed/tapered leg face.
+ * Accounts for taper, splay rotation, and Y-adjustment.
+ */
+function computeLegFaceNormal(
+  legPosition: 'FL' | 'FR' | 'BL' | 'BR',
+  face: '+X' | '-X' | '+Z' | '-Z',
+  splayAngle: number,
+  topSize: number,      // Leg thickness at top
+  bottomSize: number,   // Leg thickness at bottom (after taper)
+  legHeight: number
+): THREE.Vector3 {
+  const splayRad = (splayAngle * Math.PI) / 180
+  const t = topSize / 2
+  const b = bottomSize / 2
 
-  return {
-    miterAngle: miterRadians * 180 / Math.PI,
-    bevelAngle: bevelRadians * 180 / Math.PI,
+  // Rotation angles for each leg position
+  const rotations = {
+    FL: { θx: splayRad, θz: -splayRad },
+    FR: { θx: splayRad, θz: splayRad },
+    BL: { θx: -splayRad, θz: -splayRad },
+    BR: { θx: -splayRad, θz: splayRad }
+  }
+  const { θx, θz } = rotations[legPosition]
+
+  // Y adjustment keeps top/bottom faces horizontal after rotation
+  const yAdjust = (x: number, z: number): number => {
+    return -x * Math.sin(θz) + z * Math.sin(θx)
+  }
+
+  const yTopBase = legHeight / 2
+  const yBottomBase = -legHeight / 2
+
+  // Get 4 corners of the specified face
+  // Example for +X face (right side of leg):
+  const corners = {
+    top1: new THREE.Vector3(t, yTopBase + yAdjust(t, -t), -t),
+    top2: new THREE.Vector3(t, yTopBase + yAdjust(t, t), t),
+    bot1: new THREE.Vector3(b, yBottomBase + yAdjust(b, -b), -b),
+    bot2: new THREE.Vector3(b, yBottomBase + yAdjust(b, b), b)
+  }
+
+  // Face normal from cross product of edges
+  const edge1 = new THREE.Vector3().subVectors(corners.top2, corners.top1)
+  const edge2 = new THREE.Vector3().subVectors(corners.bot1, corners.top1)
+  const localNormal = new THREE.Vector3().crossVectors(edge1, edge2).normalize()
+
+  // Apply leg rotation to get world-space normal
+  const rotationMatrix = new THREE.Matrix4()
+  const euler = new THREE.Euler(θx, 0, θz, 'XYZ')
+  rotationMatrix.makeRotationFromEuler(euler)
+
+  return localNormal.applyMatrix4(rotationMatrix).normalize()
+}
+```
+
+### Step 2: Mapping Leg Faces to Apron Ends
+
+Each apron end meets a specific leg face:
+
+```typescript
+// Front apron: left end → FL's +X face, right end → FR's -X face
+// Back apron:  left end → BL's +X face, right end → BR's -X face
+// Left apron:  left end → BL's -Z face, right end → FL's +Z face
+// Right apron: left end → BR's -Z face, right end → FR's +Z face
+
+const legFaceNormals = {
+  front: {
+    left: computeLegFaceNormal('FL', '+X', splayAngle, topSize, bottomSize, legHeight),
+    right: computeLegFaceNormal('FR', '-X', splayAngle, topSize, bottomSize, legHeight)
+  },
+  back: {
+    left: computeLegFaceNormal('BL', '+X', splayAngle, topSize, bottomSize, legHeight),
+    right: computeLegFaceNormal('BR', '-X', splayAngle, topSize, bottomSize, legHeight)
+  },
+  left: {
+    left: computeLegFaceNormal('BL', '-Z', splayAngle, topSize, bottomSize, legHeight),
+    right: computeLegFaceNormal('FL', '+Z', splayAngle, topSize, bottomSize, legHeight)
+  },
+  right: {
+    left: computeLegFaceNormal('BR', '-Z', splayAngle, topSize, bottomSize, legHeight),
+    right: computeLegFaceNormal('FR', '+Z', splayAngle, topSize, bottomSize, legHeight)
   }
 }
 ```
 
-### Mortise Angle
+### Step 3: Apron End Vertex Positioning
 
-The mortise in a splayed leg must also be angled:
-```
-MORTISE ANGLE = same as leg splay angle
+Use the plane equation to position each apron end vertex so the end face
+lies on the same plane as the leg face:
+
+```typescript
+/**
+ * Compute X shift for an apron end vertex to lie on the leg face plane.
+ *
+ * Given the leg face normal (in world space) and the apron's rotation,
+ * solve the plane equation for the X position of each (Y, Z) vertex.
+ */
+function computeXShift(
+  worldNormal: THREE.Vector3,
+  localY: number,      // Vertex Y in apron-local coords
+  localZ: number,      // Vertex Z in apron-local coords
+  rotateY: number      // Apron's Y rotation (0 for front/back, π/2 for sides)
+): number {
+  // Transform world normal to apron-local coordinates
+  const cosR = Math.cos(-rotateY)
+  const sinR = Math.sin(-rotateY)
+
+  const localNx = worldNormal.x * cosR + worldNormal.z * sinR
+  const localNy = worldNormal.y
+  const localNz = -worldNormal.x * sinR + worldNormal.z * cosR
+
+  // Avoid division by near-zero
+  if (Math.abs(localNx) < 0.001) return 0
+
+  // Plane equation: Nx*x + Ny*y + Nz*z = d
+  // At nominal end (y=0, z=0), x = ±halfLength
+  // For other (y, z): shift = -(Ny*y + Nz*z) / Nx
+  return -(localNy * localY + localNz * localZ) / localNx
+}
 ```
 
-This is complex to cut and is one reason MCM furniture often uses
-different joinery (dowels, loose tenons, mechanical fasteners).
+### Step 4: Build Apron Geometry
+
+Apply the shifts to each of the 8 apron vertices:
+
+```typescript
+function createCompoundAngleApronGeometry(
+  length: number,
+  height: number,
+  thickness: number,
+  rotateY: number,
+  legFaceNormals: { left: THREE.Vector3; right: THREE.Vector3 }
+): THREE.BufferGeometry {
+  const halfLength = length / 2
+  const halfHeight = height / 2
+  const halfThickness = thickness / 2
+
+  // Compute shifts for each corner
+  // Left end vertices
+  const LTF_shift = computeXShift(legFaceNormals.left, halfHeight, -halfThickness, rotateY)
+  const LTB_shift = computeXShift(legFaceNormals.left, halfHeight, halfThickness, rotateY)
+  const LBF_shift = computeXShift(legFaceNormals.left, -halfHeight, -halfThickness, rotateY)
+  const LBB_shift = computeXShift(legFaceNormals.left, -halfHeight, halfThickness, rotateY)
+
+  // Right end vertices
+  const RTF_shift = computeXShift(legFaceNormals.right, halfHeight, -halfThickness, rotateY)
+  const RTB_shift = computeXShift(legFaceNormals.right, halfHeight, halfThickness, rotateY)
+  const RBF_shift = computeXShift(legFaceNormals.right, -halfHeight, -halfThickness, rotateY)
+  const RBB_shift = computeXShift(legFaceNormals.right, -halfHeight, halfThickness, rotateY)
+
+  // Define the 8 corners with shifts applied
+  const LTF = [-halfLength + LTF_shift, halfHeight, -halfThickness]
+  const LTB = [-halfLength + LTB_shift, halfHeight, halfThickness]
+  const LBF = [-halfLength + LBF_shift, -halfHeight, -halfThickness]
+  const LBB = [-halfLength + LBB_shift, -halfHeight, halfThickness]
+
+  const RTF = [halfLength + RTF_shift, halfHeight, -halfThickness]
+  const RTB = [halfLength + RTB_shift, halfHeight, halfThickness]
+  const RBF = [halfLength + RBF_shift, -halfHeight, -halfThickness]
+  const RBB = [halfLength + RBB_shift, -halfHeight, halfThickness]
+
+  // Build 6 faces from these vertices...
+  // (See ApronMesh.tsx for full implementation)
+}
+```
+
+### Key Files
+
+- **TableModel.tsx**: `computeLegFaceNormal()` - calculates actual leg face normals
+- **ApronMesh.tsx**: `computeXShift()` and `createCompoundAngleGeometry()` - builds matching apron ends
+
+### Why This Works
+
+1. **No assumptions about angle relationships** - we compute actual geometry
+2. **Handles any combination of splay + taper** - the math adapts automatically
+3. **Single source of truth** - leg geometry determines apron angles, not vice versa
+4. **Extensible** - same approach works for any joinery needing compound angles
+
+### Mortise Angle Note
+
+The mortise in a splayed leg must also be angled to match the apron entry angle.
+This is complex to cut and is one reason MCM furniture often uses different
+joinery (dowels, loose tenons, mechanical fasteners) instead of traditional
+mortise and tenon.
 
 ---
 

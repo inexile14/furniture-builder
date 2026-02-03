@@ -168,7 +168,7 @@ function createCompoundAngleGeometry(
   length: number,
   height: number,
   thickness: number,
-  position: ApronPosition,
+  _position: ApronPosition,
   _profile: ApronProfile,
   rotateY: number,
   legFaceNormals?: { left: THREE.Vector3; right: THREE.Vector3 }
@@ -204,7 +204,7 @@ function createCompoundAngleGeometry(
     worldNormal: THREE.Vector3,
     localY: number,
     localZ: number,
-    isRightEnd: boolean
+    _isRightEnd: boolean
   ): number {
     // Transform world normal to apron-local coords
     // rotateY means: local coords = Ry(-rotateY) * world coords
