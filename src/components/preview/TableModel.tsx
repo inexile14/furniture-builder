@@ -391,13 +391,19 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
             // Panel dimensions for side panels (front/back)
             const sidePanelWidth = 2 * legCenterX - params.legs.thickness
 
-            // Panel height: from stretcher top to apron bottom
-            const stretcherTopY = params.stretchers.heightFromFloor + params.stretchers.width
+            // Apron bottom Y (same for all panels)
             const apronBottomY = params.height - params.top.thickness - params.aprons.height
-            const panelHeight = apronBottomY - stretcherTopY
 
-            // Y position: center of the panel
-            const panelCenterY = stretcherTopY + panelHeight / 2
+            // End panels use sideHeightFromFloor (left/right stretchers)
+            const endStretcherHeight = params.stretchers.sideHeightFromFloor ?? params.stretchers.heightFromFloor
+            const endStretcherTopY = endStretcherHeight + params.stretchers.width
+            const endPanelHeight = apronBottomY - endStretcherTopY
+            const endPanelCenterY = endStretcherTopY + endPanelHeight / 2
+
+            // Side panels use heightFromFloor (front/back stretchers)
+            const sideStretcherTopY = params.stretchers.heightFromFloor + params.stretchers.width
+            const sidePanelHeight = apronBottomY - sideStretcherTopY
+            const sidePanelCenterY = sideStretcherTopY + sidePanelHeight / 2
 
             // X position for end panels (at the table ends)
             const endPanelX = legCenterX
@@ -408,48 +414,48 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
             return (
               <>
                 {/* Left end panel slats */}
-                {slats.sides.left && (
+                {slats.sides.left && endPanelHeight > 0 && (
                   <SlatMesh
                     slatParams={slats}
                     panelWidth={endPanelWidth}
-                    panelHeight={panelHeight}
-                    position={[-endPanelX, panelCenterY, 0]}
+                    panelHeight={endPanelHeight}
+                    position={[-endPanelX, endPanelCenterY, 0]}
                     rotation={Math.PI / 2}
                     color={woodColor}
                   />
                 )}
 
                 {/* Right end panel slats */}
-                {slats.sides.right && (
+                {slats.sides.right && endPanelHeight > 0 && (
                   <SlatMesh
                     slatParams={slats}
                     panelWidth={endPanelWidth}
-                    panelHeight={panelHeight}
-                    position={[endPanelX, panelCenterY, 0]}
+                    panelHeight={endPanelHeight}
+                    position={[endPanelX, endPanelCenterY, 0]}
                     rotation={Math.PI / 2}
                     color={woodColor}
                   />
                 )}
 
                 {/* Front panel slats (if enabled) */}
-                {slats.sides.front && (
+                {slats.sides.front && sidePanelHeight > 0 && (
                   <SlatMesh
                     slatParams={slats}
                     panelWidth={sidePanelWidth}
-                    panelHeight={panelHeight}
-                    position={[0, panelCenterY, -sidePanelZ]}
+                    panelHeight={sidePanelHeight}
+                    position={[0, sidePanelCenterY, -sidePanelZ]}
                     rotation={0}
                     color={woodColor}
                   />
                 )}
 
                 {/* Back panel slats (if enabled) */}
-                {slats.sides.back && (
+                {slats.sides.back && sidePanelHeight > 0 && (
                   <SlatMesh
                     slatParams={slats}
                     panelWidth={sidePanelWidth}
-                    panelHeight={panelHeight}
-                    position={[0, panelCenterY, sidePanelZ]}
+                    panelHeight={sidePanelHeight}
+                    position={[0, sidePanelCenterY, sidePanelZ]}
                     rotation={0}
                     color={woodColor}
                   />

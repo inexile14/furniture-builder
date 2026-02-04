@@ -24,7 +24,7 @@ export const SHAKER_PRESET: StylePreset = {
       chamferSize: 0.5625,  // 9/16"
       chamferAngle: 35,
       breadboardEnds: false,
-      overhang: { sides: 1.5, ends: 3 }  // Traditional Shaker: more overhang at ends
+      overhang: { sides: 3, ends: 6 }  // Traditional Shaker: generous overhang
     },
     legs: {
       style: 'tapered',
@@ -152,7 +152,7 @@ export const FARMHOUSE_PRESET: StylePreset = {
   },
   defaults: {
     top: {
-      thickness: 2,  // Gold standard: 2" thick solid top
+      thickness: 1.5,  // Substantial but not overly heavy
       edgeProfile: 'square',
       breadboardEnds: true,
       breadboard: {
@@ -166,7 +166,10 @@ export const FARMHOUSE_PRESET: StylePreset = {
     legs: {
       style: 'square',  // Default to square; turned/ornamental as future options
       thickness: 4,  // Gold standard: 4" square legs
-      chamfer: 0.125,  // Slight chamfer for hand-friendly edges
+      chamfer: 0.125,  // Legacy: slight chamfer for hand-friendly edges
+      chamferLongEdges: true,
+      chamferFoot: true,
+      chamferSize: 0.25,  // 1/4" chamfer around bottom of legs
       insetFromEdge: 0,
       foot: 'none'
     },
@@ -350,53 +353,53 @@ export const MISSION_PRESET: StylePreset = {
   },
   defaults: {
     top: {
-      thickness: 1.25,  // Substantial top
-      edgeProfile: 'chamfered',  // Simple chamfered edge
+      thickness: 1.125,  // Substantial but not too thick
+      edgeProfile: 'square',  // Clean square edge
       breadboardEnds: false,
-      overhang: { sides: 1.5, ends: 1.5 }  // Mission: consistent overhang
+      overhang: { sides: 2, ends: 2.5 }  // Generous overhang
     },
     legs: {
       style: 'square',
-      thickness: 2.75,  // Sturdy but not as heavy as farmhouse
-      chamfer: 0.125,  // Subtle chamfer on corners
+      thickness: 2.5,  // Medium-weight square legs
+      chamfer: 0.0625,  // Subtle chamfer on corners
       insetFromEdge: 0,
       foot: 'none'
     },
     aprons: {
-      height: 4,  // Aprons frame the slat panels
+      height: 4.5,  // Taller aprons to frame slat panels
       thickness: 0.875,
       bottomProfile: 'straight',  // Clean, simple profile
-      setback: 0,
+      setback: 0.125,  // Slight setback from leg face
       sides: { front: true, back: true, left: true, right: true }
     },
     stretchers: {
-      enabled: true,  // Mission tables have stretchers at end panels
+      enabled: true,  // End stretchers only
       style: 'box',
-      heightFromFloor: 7.5,  // ~25% up from floor (30" table)
-      sideHeightFromFloor: 7.5,
-      width: 2,  // Wide stretchers
+      heightFromFloor: 4,  // Lower position for end stretchers
+      sideHeightFromFloor: 4,  // Same height - only ends will show due to slat config
+      width: 3,  // Tall stretcher to anchor slat panel
       thickness: 0.875
     },
     slats: {
       enabled: true,
-      count: 9,  // Number of slats per end panel
-      width: 0.625,  // 5/8" wide slats
-      thickness: 0.5,  // 1/2" thick
-      topGap: 0.25,  // Small gap below apron
-      bottomGap: 0.25,  // Small gap above stretcher
+      count: 11,  // More slats for proper spacing
+      width: 0.5,  // 1/2" wide slats
+      thickness: 0.375,  // 3/8" thick
+      topGap: 0.375,  // Small gap below apron
+      bottomGap: 0.375,  // Small gap above stretcher
       sides: { front: false, back: false, left: true, right: true }  // Only on ends
     },
     joinery: {
-      legApronJoint: 'through-tenon',  // Exposed through-tenons are iconic
-      cornerJoint: 'shortened',
+      legApronJoint: 'mortise-tenon',
+      cornerJoint: 'mitered',
       haunched: true,
       tenonThicknessRatio: 0.333,
-      tenonLengthRatio: 0.8,  // Longer tenons for strength
-      tenonShoulderWidth: 0.375,
-      mortiseSetback: 0.25,
+      tenonLengthRatio: 0.7,
+      tenonShoulderWidth: 0.25,
+      mortiseSetback: 0.1875,
       topAttachment: 'buttons',
-      topAttachmentSpacing: 10,
-      stretcherJoint: 'through-tenon',
+      topAttachmentSpacing: 12,
+      stretcherJoint: 'mortise-tenon',
       showJoineryInPreview: true
     }
   },

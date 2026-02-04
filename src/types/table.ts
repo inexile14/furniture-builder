@@ -69,7 +69,12 @@ export interface LegParams {
   style: LegStyle
   thickness: number
   insetFromEdge: number
-  chamfer: number
+  chamfer: number  // Legacy: chamfer size for long edges
+
+  // Chamfer options (more granular control)
+  chamferLongEdges?: boolean   // Chamfer the 4 vertical edges
+  chamferFoot?: boolean        // Chamfer around the bottom of the leg
+  chamferSize?: number         // Size of chamfers (overrides legacy chamfer)
 
   // Taper parameters (when style === 'tapered')
   taperStartFromTop?: number

@@ -63,7 +63,9 @@ export default function LegMesh({ position, x, z, legParams, height, color, yOff
 
       case 'square':
       default: {
-        return createSquareLegGeometry(thickness, height)
+        const chamferSize = legParams.chamferSize || legParams.chamfer || 0
+        const chamferFoot = legParams.chamferFoot || false
+        return createSquareLegGeometry(thickness, height, chamferSize, chamferFoot)
       }
     }
   }, [legParams, height, position])
@@ -435,17 +437,164 @@ function createSplayedLegGeometry(
 }
 
 /**
- * Create square leg geometry with proper edge detection
- * Uses toNonIndexed() to ensure Edges component works correctly
+ * Create square leg geometry with optional foot chamfer
+ * Uses manual geometry when chamfered, BoxGeometry when not
  */
 function createSquareLegGeometry(
   size: number,
-  height: number
+  height: number,
+  chamferSize: number = 0,
+  chamferFoot: boolean = false
 ): THREE.BufferGeometry {
-  const box = new THREE.BoxGeometry(size, height, size)
-  // Convert to non-indexed geometry for proper flat shading and edge detection
-  const geometry = box.toNonIndexed()
+  // If no foot chamfer, use simple box
+  if (!chamferFoot || chamferSize <= 0) {
+    const box = new THREE.BoxGeometry(size, height, size)
+    const geometry = box.toNonIndexed()
+    geometry.computeVertexNormals()
+    return geometry
+  }
+
+  // Create geometry with chamfered bottom edges
+  const hS = size / 2  // half size
+  const hH = height / 2  // half height
+  const c = Math.min(chamferSize, hS, 1)  // chamfer size, capped
+
+  const vertices: number[] = []
+  const indices: number[] = []
+  let idx = 0
+
+  function addQuad(
+    p0: [number, number, number],
+    p1: [number, number, number],
+    p2: [number, number, number],
+    p3: [number, number, number]
+  ) {
+    vertices.push(...p0, ...p1, ...p2, ...p3)
+    indices.push(idx, idx + 1, idx + 2)
+    indices.push(idx, idx + 2, idx + 3)
+    idx += 4
+  }
+
+  // Y levels
+  const yTop = hH
+  const yBottomChamfer = -hH + c  // Where chamfer starts
+  const yBottom = -hH
+
+  // Top face
+  addQuad(
+    [-hS, yTop, -hS], [hS, yTop, -hS], [hS, yTop, hS], [-hS, yTop, hS]
+  )
+
+  // Bottom face (inset by chamfer)
+  addQuad(
+    [-hS + c, yBottom, hS - c], [hS - c, yBottom, hS - c],
+    [hS - c, yBottom, -hS + c], [-hS + c, yBottom, -hS + c]
+  )
+
+  // Side faces (from top to chamfer start)
+  // Front (-Z)
+  addQuad(
+    [-hS, yTop, -hS], [-hS, yBottomChamfer, -hS],
+    [hS, yBottomChamfer, -hS], [hS, yTop, -hS]
+  )
+  // Right (+X)
+  addQuad(
+    [hS, yTop, -hS], [hS, yBottomChamfer, -hS],
+    [hS, yBottomChamfer, hS], [hS, yTop, hS]
+  )
+  // Back (+Z)
+  addQuad(
+    [hS, yTop, hS], [hS, yBottomChamfer, hS],
+    [-hS, yBottomChamfer, hS], [-hS, yTop, hS]
+  )
+  // Left (-X)
+  addQuad(
+    [-hS, yTop, hS], [-hS, yBottomChamfer, hS],
+    [-hS, yBottomChamfer, -hS], [-hS, yTop, -hS]
+  )
+
+  // Chamfer faces (4 sides, connecting outer edge to inset bottom)
+  // Front chamfer
+  addQuad(
+    [-hS, yBottomChamfer, -hS], [-hS + c, yBottom, -hS + c],
+    [hS - c, yBottom, -hS + c], [hS, yBottomChamfer, -hS]
+  )
+  // Right chamfer
+  addQuad(
+    [hS, yBottomChamfer, -hS], [hS - c, yBottom, -hS + c],
+    [hS - c, yBottom, hS - c], [hS, yBottomChamfer, hS]
+  )
+  // Back chamfer
+  addQuad(
+    [hS, yBottomChamfer, hS], [hS - c, yBottom, hS - c],
+    [-hS + c, yBottom, hS - c], [-hS, yBottomChamfer, hS]
+  )
+  // Left chamfer
+  addQuad(
+    [-hS, yBottomChamfer, hS], [-hS + c, yBottom, hS - c],
+    [-hS + c, yBottom, -hS + c], [-hS, yBottomChamfer, -hS]
+  )
+
+  // Corner chamfer triangles (4 corners)
+  function addTri(p0: [number, number, number], p1: [number, number, number], p2: [number, number, number]) {
+    vertices.push(...p0, ...p1, ...p2)
+    indices.push(idx, idx + 1, idx + 2)
+    idx += 3
+  }
+
+  // Front-left corner
+  addTri(
+    [-hS, yBottomChamfer, -hS],
+    [-hS, yBottomChamfer, -hS + c],
+    [-hS + c, yBottom, -hS + c]
+  )
+  addTri(
+    [-hS, yBottomChamfer, -hS],
+    [-hS + c, yBottom, -hS + c],
+    [-hS + c, yBottomChamfer, -hS]
+  )
+
+  // Front-right corner
+  addTri(
+    [hS, yBottomChamfer, -hS],
+    [hS - c, yBottom, -hS + c],
+    [hS, yBottomChamfer, -hS + c]
+  )
+  addTri(
+    [hS, yBottomChamfer, -hS],
+    [hS - c, yBottomChamfer, -hS],
+    [hS - c, yBottom, -hS + c]
+  )
+
+  // Back-right corner
+  addTri(
+    [hS, yBottomChamfer, hS],
+    [hS, yBottomChamfer, hS - c],
+    [hS - c, yBottom, hS - c]
+  )
+  addTri(
+    [hS, yBottomChamfer, hS],
+    [hS - c, yBottom, hS - c],
+    [hS - c, yBottomChamfer, hS]
+  )
+
+  // Back-left corner
+  addTri(
+    [-hS, yBottomChamfer, hS],
+    [-hS + c, yBottom, hS - c],
+    [-hS, yBottomChamfer, hS - c]
+  )
+  addTri(
+    [-hS, yBottomChamfer, hS],
+    [-hS + c, yBottomChamfer, hS],
+    [-hS + c, yBottom, hS - c]
+  )
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
+  geometry.setIndex(indices)
   geometry.computeVertexNormals()
+
   return geometry
 }
 
