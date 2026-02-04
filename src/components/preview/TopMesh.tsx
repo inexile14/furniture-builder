@@ -62,8 +62,8 @@ function createRoundedRectPoints(
 }
 
 /**
- * Create a chamfered table top geometry using THREE.js ExtrudeGeometry with bevel.
- * This handles corners automatically.
+ * Create a chamfered table top geometry.
+ * Uses a 2D cross-section profile extruded around the perimeter.
  */
 function createChamferedTopGeometry(
   length: number,
@@ -74,79 +74,170 @@ function createChamferedTopGeometry(
   chamferAngle: number,
   _cornerRadius: number
 ): THREE.BufferGeometry {
-  const hL = length / 2
-  const hW = width / 2
-
   // Calculate chamfer dimensions
   const angleRad = (chamferAngle * Math.PI) / 180
-  const chamferV = Math.min(chamferSize * Math.tan(angleRad), thickness * 0.45)
+  const chamferV = Math.min(chamferSize * Math.tan(angleRad), thickness * 0.4)
   const chamferH = chamferV / Math.tan(angleRad)
 
   const doTop = chamferEdge === 'top' || chamferEdge === 'both'
   const doBottom = chamferEdge === 'bottom' || chamferEdge === 'both'
 
-  // Create the 2D shape (rectangle)
-  const shape = new THREE.Shape()
-  shape.moveTo(-hL, -hW)
-  shape.lineTo(hL, -hW)
-  shape.lineTo(hL, hW)
-  shape.lineTo(-hL, hW)
-  shape.closePath()
+  // Create a 2D cross-section profile (looking at the edge from the side)
+  // Y is vertical (thickness direction), X is horizontal (into the table)
+  const profile = new THREE.Shape()
 
-  // For bottom-only chamfer, we extrude with bevel on one side
-  // For top-only, we flip the geometry
-  // For both, we use bevel on both sides
+  const halfT = thickness / 2
 
-  if (doBottom && !doTop) {
-    // Bottom chamfer only - extrude with bevel, then flip
-    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-      depth: thickness - chamferV,
-      bevelEnabled: true,
-      bevelThickness: chamferV,
-      bevelSize: chamferH,
-      bevelSegments: 1,
-      bevelOffset: 0
-    }
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
-    // Rotate so Y is up, and position so it's centered
-    geo.rotateX(-Math.PI / 2)
-    geo.translate(0, thickness / 2 - chamferV / 2, 0)
-    return geo
-  } else if (doTop && !doBottom) {
-    // Top chamfer only - extrude with bevel, positioned differently
-    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-      depth: thickness - chamferV,
-      bevelEnabled: true,
-      bevelThickness: chamferV,
-      bevelSize: chamferH,
-      bevelSegments: 1,
-      bevelOffset: 0
-    }
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
-    geo.rotateX(-Math.PI / 2)
-    geo.rotateY(Math.PI)  // Flip to put bevel on top
-    geo.translate(0, -thickness / 2 + chamferV / 2, 0)
-    return geo
-  } else if (doTop && doBottom) {
-    // Both chamfers - use bevel on both sides
-    // THREE.js bevel only works on one side, so we need to do this manually
-    // or accept bevel on both ends of the extrusion
-    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-      depth: thickness - 2 * chamferV,
-      bevelEnabled: true,
-      bevelThickness: chamferV,
-      bevelSize: chamferH,
-      bevelSegments: 1,
-      bevelOffset: 0
-    }
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
-    geo.rotateX(-Math.PI / 2)
-    geo.translate(0, 0, 0)
-    return geo
+  if (doTop && doBottom) {
+    // Both chamfers
+    profile.moveTo(0, halfT - chamferV)           // Top outer, at chamfer start
+    profile.lineTo(chamferH, halfT)               // Top inner (inset)
+    profile.lineTo(chamferH, -halfT)              // Bottom inner
+    profile.lineTo(0, -halfT + chamferV)          // Bottom outer, at chamfer start
+    profile.lineTo(0, halfT - chamferV)           // Close
+  } else if (doBottom) {
+    // Bottom chamfer only
+    profile.moveTo(0, halfT)                      // Top outer
+    profile.lineTo(chamferH, halfT)               // Top inner
+    profile.lineTo(chamferH, -halfT)              // Bottom inner
+    profile.lineTo(0, -halfT + chamferV)          // Bottom outer, at chamfer start
+    profile.lineTo(0, halfT)                      // Close
+  } else if (doTop) {
+    // Top chamfer only
+    profile.moveTo(0, halfT - chamferV)           // Top outer, at chamfer start
+    profile.lineTo(chamferH, halfT)               // Top inner
+    profile.lineTo(chamferH, -halfT)              // Bottom inner
+    profile.lineTo(0, -halfT)                     // Bottom outer
+    profile.lineTo(0, halfT - chamferV)           // Close
+  } else {
+    // No chamfer - simple rectangle
+    return new THREE.BoxGeometry(length, thickness, width)
   }
 
-  // No chamfer - simple box
-  return new THREE.BoxGeometry(length, thickness, width)
+  // Create the perimeter path (rectangle)
+  const hL = length / 2
+  const hW = width / 2
+
+  // We'll use ExtrudeGeometry with a rectangular path
+  // But ExtrudeGeometry extrudes along Z, not around a path
+  // So we need a different approach: build the geometry manually with the profile at each edge
+
+  // Actually, let's use a simpler approach: create the shape as the footprint
+  // and use bevel for the chamfer, accepting it applies to both ends
+  // Then manually adjust by creating a composite
+
+  // Simplest working approach: create inner box + chamfer strips
+  const geometries: THREE.BufferGeometry[] = []
+
+  // Inner box (the part that's not chamfered)
+  const innerLength = length - 2 * chamferH
+  const innerWidth = width - 2 * chamferH
+  const innerHeight = doTop && doBottom ? thickness - 2 * chamferV : thickness - chamferV
+  const innerY = doTop && doBottom ? 0 : (doBottom ? chamferV / 2 : -chamferV / 2)
+
+  const innerBox = new THREE.BoxGeometry(innerLength, innerHeight, innerWidth)
+  innerBox.translate(0, innerY, 0)
+  geometries.push(innerBox)
+
+  // Top surface (if no top chamfer, or the flat part above chamfer)
+  if (!doTop) {
+    const topPlate = new THREE.BoxGeometry(length, chamferV, width)
+    topPlate.translate(0, halfT - chamferV / 2, 0)
+    geometries.push(topPlate)
+  }
+
+  // Bottom surface (if no bottom chamfer)
+  if (!doBottom) {
+    const bottomPlate = new THREE.BoxGeometry(length, chamferV, width)
+    bottomPlate.translate(0, -halfT + chamferV / 2, 0)
+    geometries.push(bottomPlate)
+  }
+
+  // Front chamfer strip (-Z)
+  if (doBottom) {
+    const frontChamfer = createChamferStrip(length - 2 * chamferH, chamferH, chamferV)
+    frontChamfer.rotateX(Math.PI / 2 + Math.atan2(chamferV, chamferH))
+    frontChamfer.translate(0, -halfT + chamferV / 2, -hW + chamferH / 2)
+    geometries.push(frontChamfer)
+  }
+
+  // Back chamfer strip (+Z)
+  if (doBottom) {
+    const backChamfer = createChamferStrip(length - 2 * chamferH, chamferH, chamferV)
+    backChamfer.rotateX(-(Math.PI / 2 + Math.atan2(chamferV, chamferH)))
+    backChamfer.rotateY(Math.PI)
+    backChamfer.translate(0, -halfT + chamferV / 2, hW - chamferH / 2)
+    geometries.push(backChamfer)
+  }
+
+  // Left chamfer strip (-X)
+  if (doBottom) {
+    const leftChamfer = createChamferStrip(width - 2 * chamferH, chamferH, chamferV)
+    leftChamfer.rotateX(Math.PI / 2 + Math.atan2(chamferV, chamferH))
+    leftChamfer.rotateY(-Math.PI / 2)
+    leftChamfer.translate(-hL + chamferH / 2, -halfT + chamferV / 2, 0)
+    geometries.push(leftChamfer)
+  }
+
+  // Right chamfer strip (+X)
+  if (doBottom) {
+    const rightChamfer = createChamferStrip(width - 2 * chamferH, chamferH, chamferV)
+    rightChamfer.rotateX(Math.PI / 2 + Math.atan2(chamferV, chamferH))
+    rightChamfer.rotateY(Math.PI / 2)
+    rightChamfer.translate(hL - chamferH / 2, -halfT + chamferV / 2, 0)
+    geometries.push(rightChamfer)
+  }
+
+  // Merge all geometries
+  return mergeBufferGeometries(geometries)
+}
+
+/**
+ * Create a flat strip for the chamfer face
+ */
+function createChamferStrip(length: number, width: number, _height: number): THREE.BufferGeometry {
+  return new THREE.PlaneGeometry(length, Math.sqrt(width * width + _height * _height))
+}
+
+/**
+ * Merge multiple BufferGeometries into one
+ */
+function mergeBufferGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const positions: number[] = []
+  const indices: number[] = []
+  let indexOffset = 0
+
+  for (const geo of geometries) {
+    const posAttr = geo.getAttribute('position')
+    const posArray = posAttr.array as Float32Array
+
+    for (let i = 0; i < posArray.length; i++) {
+      positions.push(posArray[i])
+    }
+
+    const idx = geo.getIndex()
+    if (idx) {
+      const idxArray = idx.array as Uint16Array | Uint32Array
+      for (let i = 0; i < idxArray.length; i++) {
+        indices.push(idxArray[i] + indexOffset)
+      }
+    } else {
+      // Non-indexed geometry - create indices
+      const vertexCount = posAttr.count
+      for (let i = 0; i < vertexCount; i += 3) {
+        indices.push(indexOffset + i, indexOffset + i + 1, indexOffset + i + 2)
+      }
+    }
+
+    indexOffset += posAttr.count
+  }
+
+  const merged = new THREE.BufferGeometry()
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  merged.setIndex(indices)
+  merged.computeVertexNormals()
+
+  return merged
 }
 
 export default function TopMesh({
