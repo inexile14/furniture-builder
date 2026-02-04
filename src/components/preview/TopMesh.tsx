@@ -5,8 +5,8 @@
 
 import * as THREE from 'three'
 import { useMemo } from 'react'
-import { Edges, Line, Text } from '@react-three/drei'
-import type { EdgeProfile, ChamferEdge, Style } from '../../types'
+import { Edges, Line } from '@react-three/drei'
+import type { EdgeProfile, ChamferEdge } from '../../types'
 
 interface TopMeshProps {
   length: number
@@ -19,8 +19,6 @@ interface TopMeshProps {
   chamferEdge?: ChamferEdge
   chamferSize?: number
   chamferAngle?: number
-  // Style for special rendering
-  style?: Style
 }
 
 /**
@@ -488,8 +486,7 @@ export default function TopMesh({
   cornerRadius = 0,
   chamferEdge = 'bottom',
   chamferSize = 0.25,
-  chamferAngle = 45,
-  style
+  chamferAngle = 45
 }: TopMeshProps) {
   const geometry = useMemo(() => {
     // For chamfered edges, create custom geometry
@@ -630,19 +627,6 @@ export default function TopMesh({
         </>
       )}
 
-      {/* "Jeremy" text on Shaker table top */}
-      {style === 'shaker' && (
-        <Text
-          position={[0, thickness / 2 + 0.01, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          fontSize={Math.min(length, width) * 0.12}
-          color="#4A3728"
-          anchorX="center"
-          anchorY="middle"
-        >
-          Jeremy
-        </Text>
-      )}
     </group>
   )
 }
