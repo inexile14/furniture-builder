@@ -258,6 +258,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
           chamferEdge={params.top.chamferEdge}
           chamferSize={params.top.chamferSize}
           chamferAngle={params.top.chamferAngle}
+          style={params.style}
         />
       </animated.group>
 
