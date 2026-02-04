@@ -59,8 +59,11 @@ export const DEFAULT_TABLE_PARAMS: TableParams = {
   height: 30,
   top: {
     thickness: SHAKER_PRESET.defaults.top.thickness!,
-    overhang: SHAKER_PRESET.defaults.top.overhang!,
+    overhang: SHAKER_PRESET.defaults.top.overhang as { sides: number; ends: number },
     edgeProfile: SHAKER_PRESET.defaults.top.edgeProfile!,
+    chamferEdge: SHAKER_PRESET.defaults.top.chamferEdge,
+    chamferSize: SHAKER_PRESET.defaults.top.chamferSize,
+    chamferAngle: SHAKER_PRESET.defaults.top.chamferAngle,
     breadboardEnds: SHAKER_PRESET.defaults.top.breadboardEnds!
   },
   legs: {

@@ -43,10 +43,8 @@ export type ApronPosition = 'front' | 'back' | 'left' | 'right'
 export interface TopParams {
   thickness: number
   overhang: {
-    front: number
-    back: number
-    left: number
-    right: number
+    sides: number   // Front and back edges (along the length)
+    ends: number    // Left and right edges (the short ends of the table)
   }
   edgeProfile: EdgeProfile
   cornerRadius?: number  // Radius for rounded corners (0 = sharp corners)
@@ -206,6 +204,25 @@ export interface TrestleParams {
 }
 
 // =============================================================================
+// SLAT PARAMETERS (Mission style end panels)
+// =============================================================================
+
+export interface SlatParams {
+  enabled: boolean
+  count: number           // Number of slats per end panel
+  width: number           // Width of each slat
+  thickness: number       // Thickness of each slat
+  topGap: number          // Gap between apron bottom and slat top
+  bottomGap: number       // Gap between stretcher top and slat bottom
+  sides: {
+    front: boolean        // Slats on front panel
+    back: boolean         // Slats on back panel
+    left: boolean         // Slats on left end panel
+    right: boolean        // Slats on right end panel
+  }
+}
+
+// =============================================================================
 // COMBINED TABLE PARAMETERS
 // =============================================================================
 
@@ -219,6 +236,7 @@ export interface TableParams {
   legs: LegParams
   aprons: ApronParams
   stretchers: StretcherParams
+  slats?: SlatParams
   trestle?: TrestleParams
   drawers?: DrawerParams
   shelf?: ShelfParams

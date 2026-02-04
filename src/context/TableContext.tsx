@@ -258,7 +258,7 @@ function applyStylePreset(params: TableParams, preset: StylePreset): TableParams
       cornerRadius: preset.defaults.top?.cornerRadius,
       breadboardEnds: preset.defaults.top?.breadboardEnds || false,
       breadboard: preset.defaults.top?.breadboard,
-      overhang: preset.defaults.top?.overhang || { front: 0.75, back: 0.75, left: 0.75, right: 0.75 },
+      overhang: preset.defaults.top?.overhang as { sides: number; ends: number } || { sides: 1, ends: 1 },
       chamferEdge: preset.defaults.top?.chamferEdge,
       chamferSize: preset.defaults.top?.chamferSize,
       chamferAngle: preset.defaults.top?.chamferAngle

@@ -26,15 +26,18 @@ export default function NumberInput({
   unit = '',
   showFraction = true
 }: NumberInputProps) {
-  const [inputValue, setInputValue] = useState(value.toString())
+  // Format value consistently (fraction or decimal)
+  const formatValue = (v: number) => showFraction ? toFraction(v) : v.toFixed(2)
+
+  const [inputValue, setInputValue] = useState(formatValue(value))
   const [isFocused, setIsFocused] = useState(false)
 
   // Update input when value prop changes (and not focused)
   useEffect(() => {
     if (!isFocused) {
-      setInputValue(value.toString())
+      setInputValue(formatValue(value))
     }
-  }, [value, isFocused])
+  }, [value, isFocused, showFraction])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value)
@@ -47,9 +50,9 @@ export default function NumberInput({
       const clamped = Math.min(Math.max(parsed, min), max)
       const stepped = Math.round(clamped / step) * step
       onChange(stepped)
-      setInputValue(stepped.toString())
+      setInputValue(formatValue(stepped))
     } else {
-      setInputValue(value.toString())
+      setInputValue(formatValue(value))
     }
   }
 
@@ -76,13 +79,7 @@ export default function NumberInput({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="input-label mb-0">{label}</label>
-        <span className="text-xs text-workshop-600 font-mono">
-          {showFraction ? toFraction(value) : value.toFixed(2)}
-          {unit && <span className="text-workshop-400 ml-0.5">{unit}</span>}
-        </span>
-      </div>
+      <label className="input-label">{label}</label>
       <div className="flex items-center gap-2">
         <input
           type="range"
@@ -93,15 +90,18 @@ export default function NumberInput({
           onChange={handleSliderChange}
           className="flex-1"
         />
-        <input
-          type="text"
-          value={isFocused ? inputValue : value.toString()}
-          onChange={handleChange}
-          onFocus={() => setIsFocused(true)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          className="w-16 input-field text-center text-sm py-1"
-        />
+        <div className="w-24 flex items-center gap-1">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleChange}
+            onFocus={() => setIsFocused(true)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-16 input-field text-center text-xs py-1"
+          />
+          {unit && <span className="text-xs text-workshop-400">{unit}</span>}
+        </div>
       </div>
     </div>
   )

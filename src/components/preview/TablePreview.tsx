@@ -31,9 +31,9 @@ function Scene() {
   const centerZ = 0
   const tableHeight = params.height
 
-  // Camera distance calculation - closer for better default view
+  // Camera distance calculation - base + multiplier so larger tables appear larger
   const maxDimension = Math.max(params.length, params.width, params.height)
-  const cameraDistance = maxDimension * 1.6
+  const cameraDistance = 40 + maxDimension * 0.9
 
   return (
     <>

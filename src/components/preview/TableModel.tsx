@@ -12,6 +12,7 @@ import TopMesh from './TopMesh'
 import LegMesh from './LegMesh'
 import ApronMesh from './ApronMesh'
 import StretcherMesh from './StretcherMesh'
+import SlatMesh from './SlatMesh'
 import TrestleMesh from './TrestleMesh'
 
 /**
@@ -116,9 +117,14 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
   // Core dimensions
   const legHeight = params.height - params.top.thickness
 
+  // Overhang: sides = long edges (left/right), ends = short edges (front/back)
+  const overhangX = params.top.overhang.ends   // Short edges (table ends)
+  const overhangZ = params.top.overhang.sides  // Long edges (table sides)
+
   // Leg center positions (legs are centered at these X/Z coords)
-  const legCenterX = (params.length / 2) - params.legs.insetFromEdge - (params.legs.thickness / 2)
-  const legCenterZ = (params.width / 2) - params.legs.insetFromEdge - (params.legs.thickness / 2)
+  // Legs are inset from the table top edge by overhang + insetFromEdge
+  const legCenterX = (params.length / 2) - overhangX - params.legs.insetFromEdge - (params.legs.thickness / 2)
+  const legCenterZ = (params.width / 2) - overhangZ - params.legs.insetFromEdge - (params.legs.thickness / 2)
 
   // Calculate splay adjustments for splayed legs
   const splayAdjustments = useMemo(() => {
@@ -192,11 +198,11 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
 
   const apronLengthFrontBack = params.legs.style === 'splayed' && params.legs.splayAngle
     ? 2 * (legCenterX - splayAdjustments.topOffsetX) - params.legs.thickness + 2 * miterShift + apronPenetration
-    : params.length - (2 * params.legs.insetFromEdge) - (2 * params.legs.thickness)
+    : params.length - (2 * overhangX) - (2 * params.legs.insetFromEdge) - (2 * params.legs.thickness)
 
   const apronLengthSides = params.legs.style === 'splayed' && params.legs.splayAngle
     ? 2 * (legCenterZ - splayAdjustments.topOffsetZ) - params.legs.thickness + 2 * miterShift + apronPenetration
-    : params.width - (2 * params.legs.insetFromEdge) - (2 * params.legs.thickness)
+    : params.width - (2 * overhangZ) - (2 * params.legs.insetFromEdge) - (2 * params.legs.thickness)
 
   // Leg positions (center of each leg)
   const legPositions = useMemo(() => ({
@@ -205,6 +211,18 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
     BL: { x: -legCenterX, z: legCenterZ },
     BR: { x: legCenterX, z: legCenterZ }
   }), [legCenterX, legCenterZ])
+
+  // Apron setback offset: positions apron outer face relative to leg outer face
+  // setback = distance from leg outer face to apron outer face
+  const apronSetbackOffset = useMemo(() => {
+    const setback = params.aprons.setback || 0
+    // Offset from leg center to position apron correctly:
+    // legCenter -> legOuterFace = -legThickness/2
+    // legOuterFace -> apronOuterFace = +setback
+    // apronOuterFace -> apronCenter = +apronThickness/2
+    // Total offset from legCenter = -legThickness/2 + setback + apronThickness/2
+    return -params.legs.thickness / 2 + setback + params.aprons.thickness / 2
+  }, [params.legs.thickness, params.aprons.setback, params.aprons.thickness])
 
   // Explosion offsets
   const explosionOffsets = useMemo(() => ({
@@ -279,7 +297,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
             )
           })}
 
-          {/* Front Apron - centered on front leg tops */}
+          {/* Front Apron - outer face positioned relative to leg outer face */}
           {params.aprons.sides.front && (
             <ApronMesh
               position="front"
@@ -288,7 +306,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               thickness={params.aprons.thickness}
               y={apronY}
               x={0}
-              z={-legCenterZ + splayAdjustments.topOffsetZ}
+              z={-legCenterZ + splayAdjustments.topOffsetZ + apronSetbackOffset}
               explosionOffset={isExploded ? -explosionOffsets.aprons : 0}
               color={woodColor}
               profile={params.aprons.bottomProfile}
@@ -297,7 +315,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
             />
           )}
 
-          {/* Back Apron - centered on back leg tops */}
+          {/* Back Apron - outer face positioned relative to leg outer face */}
           {params.aprons.sides.back && (
             <ApronMesh
               position="back"
@@ -306,7 +324,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               thickness={params.aprons.thickness}
               y={apronY}
               x={0}
-              z={legCenterZ - splayAdjustments.topOffsetZ}
+              z={legCenterZ - splayAdjustments.topOffsetZ - apronSetbackOffset}
               explosionOffset={isExploded ? explosionOffsets.aprons : 0}
               color={woodColor}
               profile={params.aprons.bottomProfile}
@@ -315,7 +333,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
             />
           )}
 
-          {/* Left Apron - centered on left leg tops */}
+          {/* Left Apron - outer face positioned relative to leg outer face */}
           {params.aprons.sides.left && (
             <ApronMesh
               position="left"
@@ -323,7 +341,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               height={params.aprons.height}
               thickness={params.aprons.thickness}
               y={apronY}
-              x={-legCenterX + splayAdjustments.topOffsetX}
+              x={-legCenterX + splayAdjustments.topOffsetX + apronSetbackOffset}
               z={0}
               explosionOffset={isExploded ? -explosionOffsets.aprons : 0}
               color={woodColor}
@@ -334,7 +352,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
             />
           )}
 
-          {/* Right Apron - centered on right leg tops */}
+          {/* Right Apron - outer face positioned relative to leg outer face */}
           {params.aprons.sides.right && (
             <ApronMesh
               position="right"
@@ -342,7 +360,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               height={params.aprons.height}
               thickness={params.aprons.thickness}
               y={apronY}
-              x={legCenterX - splayAdjustments.topOffsetX}
+              x={legCenterX - splayAdjustments.topOffsetX - apronSetbackOffset}
               z={0}
               explosionOffset={isExploded ? explosionOffsets.aprons : 0}
               color={woodColor}
@@ -364,6 +382,81 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               color={woodColor}
             />
           )}
+
+          {/* Slats (Mission style end panels) */}
+          {params.slats?.enabled && params.stretchers.enabled && (() => {
+            const slats = params.slats
+            // Panel dimensions for end panels (left/right)
+            const endPanelWidth = 2 * legCenterZ - params.legs.thickness  // Distance between leg inside faces
+            // Panel dimensions for side panels (front/back)
+            const sidePanelWidth = 2 * legCenterX - params.legs.thickness
+
+            // Panel height: from stretcher top to apron bottom
+            const stretcherTopY = params.stretchers.heightFromFloor + params.stretchers.width
+            const apronBottomY = params.height - params.top.thickness - params.aprons.height
+            const panelHeight = apronBottomY - stretcherTopY
+
+            // Y position: center of the panel
+            const panelCenterY = stretcherTopY + panelHeight / 2
+
+            // X position for end panels (at the table ends)
+            const endPanelX = legCenterX
+
+            // Z position for side panels (at front/back)
+            const sidePanelZ = legCenterZ
+
+            return (
+              <>
+                {/* Left end panel slats */}
+                {slats.sides.left && (
+                  <SlatMesh
+                    slatParams={slats}
+                    panelWidth={endPanelWidth}
+                    panelHeight={panelHeight}
+                    position={[-endPanelX, panelCenterY, 0]}
+                    rotation={Math.PI / 2}
+                    color={woodColor}
+                  />
+                )}
+
+                {/* Right end panel slats */}
+                {slats.sides.right && (
+                  <SlatMesh
+                    slatParams={slats}
+                    panelWidth={endPanelWidth}
+                    panelHeight={panelHeight}
+                    position={[endPanelX, panelCenterY, 0]}
+                    rotation={Math.PI / 2}
+                    color={woodColor}
+                  />
+                )}
+
+                {/* Front panel slats (if enabled) */}
+                {slats.sides.front && (
+                  <SlatMesh
+                    slatParams={slats}
+                    panelWidth={sidePanelWidth}
+                    panelHeight={panelHeight}
+                    position={[0, panelCenterY, -sidePanelZ]}
+                    rotation={0}
+                    color={woodColor}
+                  />
+                )}
+
+                {/* Back panel slats (if enabled) */}
+                {slats.sides.back && (
+                  <SlatMesh
+                    slatParams={slats}
+                    panelWidth={sidePanelWidth}
+                    panelHeight={panelHeight}
+                    position={[0, panelCenterY, sidePanelZ]}
+                    rotation={0}
+                    color={woodColor}
+                  />
+                )}
+              </>
+            )
+          })()}
         </>
       )}
     </group>

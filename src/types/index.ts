@@ -80,6 +80,7 @@ export interface StylePreset {
     legs: Partial<LegParams>
     aprons: Partial<ApronParams>
     stretchers: Partial<StretcherParams>
+    slats?: Partial<SlatParams>
     joinery: Partial<JoineryParams>
   }
   tableTypeAdjustments: {
@@ -91,8 +92,8 @@ export interface StylePreset {
 }
 
 // Re-export Style for convenience
-import type { Style, TopParams, LegParams, ApronParams, StretcherParams, TrestleParams, JoineryParams, TableParams } from './table'
-export type { Style, TopParams, LegParams, ApronParams, StretcherParams, TrestleParams, JoineryParams, TableParams }
+import type { Style, TopParams, LegParams, ApronParams, StretcherParams, SlatParams, TrestleParams, JoineryParams, TableParams } from './table'
+export type { Style, TopParams, LegParams, ApronParams, StretcherParams, SlatParams, TrestleParams, JoineryParams, TableParams }
 
 // =============================================================================
 // STATE TYPES

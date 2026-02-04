@@ -2,7 +2,7 @@
  * Parametric Table Builder - Control Panel
  */
 
-import { useState, ReactNode } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 import { useTable } from '../../context/TableContext'
 import { STYLE_PRESETS, TABLE_TYPE_LIMITS, WOOD_SPECIES } from '../../constants'
 import type { Style, TableType, ChamferEdge } from '../../types'
@@ -82,6 +82,16 @@ export default function ControlPanel() {
     stretchers: false,
     material: false
   })
+
+  // Track whether overhang should be kept identical
+  const [keepOverhangIdentical, setKeepOverhangIdentical] = useState(
+    params.top.overhang.sides === params.top.overhang.ends
+  )
+
+  // Sync keepOverhangIdentical when style changes
+  useEffect(() => {
+    setKeepOverhangIdentical(params.top.overhang.sides === params.top.overhang.ends)
+  }, [params.style])
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }))
@@ -183,10 +193,68 @@ export default function ControlPanel() {
             value={params.top.thickness}
             onChange={(v) => dispatch({ type: 'SET_TOP_PARAM', key: 'thickness', value: v })}
             min={0.75}
-            max={1.5}
+            max={2}
             step={0.125}
             unit="in"
           />
+          {/* Overhang controls */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="input-label mb-0">Overhang</label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  id="keepOverhangIdentical"
+                  checked={keepOverhangIdentical}
+                  onChange={(e) => {
+                    setKeepOverhangIdentical(e.target.checked)
+                    if (e.target.checked) {
+                      // Set ends to match sides
+                      dispatch({
+                        type: 'SET_TOP_PARAM',
+                        key: 'overhang',
+                        value: { sides: params.top.overhang.sides, ends: params.top.overhang.sides }
+                      })
+                    }
+                  }}
+                  className="rounded border-workshop-300 text-workshop-600 focus:ring-workshop-500"
+                />
+                <label htmlFor="keepOverhangIdentical" className="text-xs text-workshop-500">
+                  Keep identical
+                </label>
+              </div>
+            </div>
+            <NumberInput
+              label="Sides"
+              value={params.top.overhang.sides}
+              onChange={(v) => {
+                dispatch({
+                  type: 'SET_TOP_PARAM',
+                  key: 'overhang',
+                  value: { sides: v, ends: keepOverhangIdentical ? v : params.top.overhang.ends }
+                })
+              }}
+              min={0.5}
+              max={4}
+              step={0.125}
+              unit="in"
+            />
+            <NumberInput
+              label="Ends"
+              value={params.top.overhang.ends}
+              onChange={(v) => {
+                dispatch({
+                  type: 'SET_TOP_PARAM',
+                  key: 'overhang',
+                  value: { sides: keepOverhangIdentical ? v : params.top.overhang.sides, ends: v }
+                })
+              }}
+              min={0.5}
+              max={4}
+              step={0.125}
+              unit="in"
+            />
+          </div>
           <div>
             <label className="input-label">Edge Profile</label>
             <select
@@ -221,7 +289,7 @@ export default function ControlPanel() {
                 value={params.top.chamferSize || 0.25}
                 onChange={(v) => dispatch({ type: 'SET_TOP_PARAM', key: 'chamferSize', value: v })}
                 min={0.125}
-                max={0.75}
+                max={params.top.thickness}
                 step={0.0625}
                 unit="in"
               />

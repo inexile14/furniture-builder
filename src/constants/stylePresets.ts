@@ -19,9 +19,12 @@ export const SHAKER_PRESET: StylePreset = {
   defaults: {
     top: {
       thickness: 1.0,  // Authentic: 1" top
-      edgeProfile: 'square',
+      edgeProfile: 'chamfered',
+      chamferEdge: 'bottom',  // Under-chamfer
+      chamferSize: 0.5625,  // 9/16"
+      chamferAngle: 35,
       breadboardEnds: false,
-      overhang: { front: 0.75, back: 0.75, left: 0.75, right: 0.75 }
+      overhang: { sides: 1.5, ends: 3 }  // Traditional Shaker: more overhang at ends
     },
     legs: {
       style: 'tapered',
@@ -89,7 +92,7 @@ export const MID_CENTURY_PRESET: StylePreset = {
       chamferAngle: 30,  // Shallower angle for MCM
       cornerRadius: 4,  // Heavy rounded corners for MCM look
       breadboardEnds: false,
-      overhang: { front: 1.0, back: 1.0, left: 1.0, right: 1.0 }
+      overhang: { sides: 1, ends: 1 }  // MCM: minimal, consistent overhang
     },
     legs: {
       style: 'splayed',
@@ -158,7 +161,7 @@ export const FARMHOUSE_PRESET: StylePreset = {
         tongueDepth: 0.75,
         tongueThickness: 0.375
       },
-      overhang: { front: 2, back: 2, left: 2, right: 2 }  // Gold standard: 2" overhang
+      overhang: { sides: 2, ends: 2 }  // Gold standard: 2" overhang all around
     },
     legs: {
       style: 'square',  // Default to square; turned/ornamental as future options
@@ -171,7 +174,7 @@ export const FARMHOUSE_PRESET: StylePreset = {
       height: 4.5,  // Gold standard: 4½" tall aprons
       thickness: 1,  // Gold standard: 1" thick aprons
       bottomProfile: 'straight',  // Simple farmhouse aesthetic
-      setback: 0,
+      setback: 0.25,  // 1/4" from outside edge of legs
       sides: { front: true, back: true, left: true, right: true }
     },
     stretchers: {
@@ -221,7 +224,7 @@ export const JAPANDI_PRESET: StylePreset = {
       thickness: 0.75,
       edgeProfile: 'chamfered',
       breadboardEnds: false,
-      overhang: { front: 0.5, back: 0.5, left: 0.5, right: 0.5 }
+      overhang: { sides: 0.5, ends: 0.5 }  // Japandi: minimal, consistent
     },
     legs: {
       style: 'square',
@@ -290,7 +293,7 @@ export const TRESTLE_PRESET: StylePreset = {
         tongueDepth: 0.625,
         tongueThickness: 0.375
       },
-      overhang: { front: 1.5, back: 1.5, left: 3, right: 3 }  // More overhang at ends
+      overhang: { sides: 1.5, ends: 3 }  // Trestle: more overhang at ends
     },
     legs: {
       // Legs not used for trestle - included for type compatibility
@@ -341,7 +344,7 @@ export const TRESTLE_PRESET: StylePreset = {
 export const MISSION_PRESET: StylePreset = {
   name: 'mission',
   displayName: 'Mission',
-  description: 'Arts & Crafts style with sturdy square legs, exposed joinery, and strong geometric lines.',
+  description: 'Arts & Crafts style with sturdy square legs, vertical slats, and strong geometric lines.',
   suggestedDimensions: {
     dining: { length: 72, width: 42, height: 30 }  // Classic Mission proportions
   },
@@ -350,29 +353,38 @@ export const MISSION_PRESET: StylePreset = {
       thickness: 1.25,  // Substantial top
       edgeProfile: 'chamfered',  // Simple chamfered edge
       breadboardEnds: false,
-      overhang: { front: 1.5, back: 1.5, left: 1.5, right: 1.5 }
+      overhang: { sides: 1.5, ends: 1.5 }  // Mission: consistent overhang
     },
     legs: {
       style: 'square',
-      thickness: 3,  // Sturdy square legs
+      thickness: 2.75,  // Sturdy but not as heavy as farmhouse
       chamfer: 0.125,  // Subtle chamfer on corners
       insetFromEdge: 0,
       foot: 'none'
     },
     aprons: {
-      height: 5,  // Taller aprons typical of Mission
-      thickness: 1,  // Thick, sturdy aprons
+      height: 4,  // Aprons frame the slat panels
+      thickness: 0.875,
       bottomProfile: 'straight',  // Clean, simple profile
       setback: 0,
       sides: { front: true, back: true, left: true, right: true }
     },
     stretchers: {
-      enabled: true,  // Mission tables often have stretchers
+      enabled: true,  // Mission tables have stretchers at end panels
       style: 'box',
-      heightFromFloor: 5,
-      sideHeightFromFloor: 5,
+      heightFromFloor: 7.5,  // ~25% up from floor (30" table)
+      sideHeightFromFloor: 7.5,
       width: 2,  // Wide stretchers
-      thickness: 1
+      thickness: 0.875
+    },
+    slats: {
+      enabled: true,
+      count: 9,  // Number of slats per end panel
+      width: 0.625,  // 5/8" wide slats
+      thickness: 0.5,  // 1/2" thick
+      topGap: 0.25,  // Small gap below apron
+      bottomGap: 0.25,  // Small gap above stretcher
+      sides: { front: false, back: false, left: true, right: true }  // Only on ends
     },
     joinery: {
       legApronJoint: 'through-tenon',  // Exposed through-tenons are iconic

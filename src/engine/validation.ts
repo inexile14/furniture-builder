@@ -123,10 +123,10 @@ function validateTop(
     })
   }
 
-  // Overhang vs table size
-  const totalOverhangLength = top.overhang.left + top.overhang.right
+  // Overhang vs table size (sides = long edges, along the width dimension)
+  const totalOverhangSides = top.overhang.sides * 2
 
-  if (totalOverhangLength >= params.width * 0.3) {
+  if (totalOverhangSides >= params.width * 0.3) {
     warnings.push({
       field: 'top.overhang',
       message: 'Overhang may make table appear unbalanced',
