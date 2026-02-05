@@ -14,9 +14,14 @@ const server = Fastify({
 })
 
 async function main() {
-  // CORS for frontend
+  // CORS for frontend (supports multiple origins for dev + production)
+  const allowedOrigins = [
+    'http://localhost:5173',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean) as string[]
+
   await server.register(cors, {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   })
 
