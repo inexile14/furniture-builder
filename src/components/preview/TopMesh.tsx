@@ -598,20 +598,24 @@ export default function TopMesh({
           color={color}
           roughness={0.7}
           metalness={0.05}
+          flatShading={true}
           side={THREE.DoubleSide}
+          polygonOffset={true}
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
         />
         {/* Auto-edges for: simple box OR rounded corners with chamfer */}
-        {(!hasRoundedCorners && !hasChamfer) && <Edges threshold={15} color="#8B7355" />}
-        {(hasRoundedCorners && hasChamfer) && <Edges threshold={15} color="#8B7355" />}
+        {(!hasRoundedCorners && !hasChamfer) && <Edges threshold={15} color="#5C4A3A" />}
+        {(hasRoundedCorners && hasChamfer) && <Edges threshold={15} color="#5C4A3A" />}
       </mesh>
 
       {/* Explicit edge lines for rounded corners WITHOUT chamfer */}
       {hasRoundedCorners && !hasChamfer && topOutline && (
         <>
-          <Line points={topOutline} color="#8B7355" lineWidth={1} />
-          <Line points={bottomOutline!} color="#8B7355" lineWidth={1} />
+          <Line points={topOutline} color="#5C4A3A" lineWidth={1} />
+          <Line points={bottomOutline!} color="#5C4A3A" lineWidth={1} />
           {verticalEdges!.map((edge, i) => (
-            <Line key={i} points={edge} color="#8B7355" lineWidth={1} />
+            <Line key={i} points={edge} color="#5C4A3A" lineWidth={1} />
           ))}
         </>
       )}
@@ -619,10 +623,10 @@ export default function TopMesh({
       {/* Explicit edge lines for chamfered geometry WITHOUT rounded corners */}
       {hasChamfer && !hasRoundedCorners && chamferEdgeData && (
         <>
-          <Line points={chamferEdgeData.topRect} color="#8B7355" lineWidth={1} />
-          <Line points={chamferEdgeData.bottomRect} color="#8B7355" lineWidth={1} />
+          <Line points={chamferEdgeData.topRect} color="#5C4A3A" lineWidth={1} />
+          <Line points={chamferEdgeData.bottomRect} color="#5C4A3A" lineWidth={1} />
           {chamferEdgeData.chamferLines.map((line, i) => (
-            <Line key={`chamfer-${i}`} points={line} color="#8B7355" lineWidth={1} />
+            <Line key={`chamfer-${i}`} points={line} color="#5C4A3A" lineWidth={1} />
           ))}
         </>
       )}

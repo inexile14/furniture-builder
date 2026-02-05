@@ -5,7 +5,6 @@
 
 import { useMemo } from 'react'
 import { useSpring, animated } from '@react-spring/three'
-import { Edges } from '@react-three/drei'
 import * as THREE from 'three'
 import type { ApronProfile, ApronPosition } from '../../types'
 
@@ -79,6 +78,11 @@ export default function ApronMesh({
     return createCompoundAngleGeometry(length, height, thickness, position, profile, rotateY, legFaceNormals)
   }, [length, height, thickness, profile, position, rotateY, legFaceNormals, splayAngle])
 
+  // Create edges geometry for visible outlines
+  const edgesGeometry = useMemo(() => {
+    return new THREE.EdgesGeometry(geometry, 15)
+  }, [geometry])
+
   return (
     <animated.group position={spring.position} rotation={[0, rotateY, 0]}>
       <mesh geometry={geometry} castShadow receiveShadow>
@@ -86,10 +90,16 @@ export default function ApronMesh({
           color={color}
           roughness={0.7}
           metalness={0.05}
+          flatShading={true}
           side={THREE.DoubleSide}
+          polygonOffset={true}
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
         />
-        <Edges threshold={15} color="#8B7355" />
       </mesh>
+      <lineSegments geometry={edgesGeometry}>
+        <lineBasicMaterial color="#5C4A3A" />
+      </lineSegments>
     </animated.group>
   )
 }

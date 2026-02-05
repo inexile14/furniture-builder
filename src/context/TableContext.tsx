@@ -119,6 +119,18 @@ function tableReducer(state: TableBuilderState, action: TableBuilderAction): Tab
       }
     }
 
+    case 'SET_SLAT_PARAM': {
+      return {
+        ...state,
+        params: {
+          ...state.params,
+          slats: state.params.slats
+            ? { ...state.params.slats, [action.key]: action.value }
+            : undefined
+        }
+      }
+    }
+
     case 'SET_TRESTLE_PARAM': {
       return {
         ...state,
@@ -268,6 +280,8 @@ function applyStylePreset(params: TableParams, preset: StylePreset): TableParams
       thickness: preset.defaults.legs?.thickness || 2,
       insetFromEdge: preset.defaults.legs?.insetFromEdge || 0,
       chamfer: preset.defaults.legs?.chamfer || 0,
+      chamferFoot: preset.defaults.legs?.chamferFoot || false,
+      footChamferSize: preset.defaults.legs?.footChamferSize,
       taperStartFromTop: preset.defaults.legs?.taperStartFromTop,
       taperEndDimension: preset.defaults.legs?.taperEndDimension,
       taperSides: preset.defaults.legs?.taperSides,
@@ -295,6 +309,14 @@ function applyStylePreset(params: TableParams, preset: StylePreset): TableParams
       thickness: preset.defaults.stretchers?.thickness || 0.875,
       centerStretcher: preset.defaults.stretchers?.centerStretcher
     },
+    slats: preset.defaults.slats ? {
+      enabled: preset.defaults.slats.enabled || false,
+      count: preset.defaults.slats.count || 5,
+      width: preset.defaults.slats.width || 2,
+      thickness: preset.defaults.slats.thickness || 0.5,
+      spacing: preset.defaults.slats.spacing || 1,
+      sides: preset.defaults.slats.sides || { front: false, back: false, left: true, right: true }
+    } : undefined,
     trestle: params.trestle,  // Preserve trestle params
     joinery: {
       legApronJoint: preset.defaults.joinery?.legApronJoint || 'mortise-tenon',

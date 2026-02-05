@@ -75,6 +75,7 @@ export interface LegParams {
   chamferLongEdges?: boolean   // Chamfer the 4 vertical edges
   chamferFoot?: boolean        // Chamfer around the bottom of the leg
   chamferSize?: number         // Size of chamfers (overrides legacy chamfer)
+  footChamferSize?: number     // Size of foot chamfer (default 0.5")
 
   // Taper parameters (when style === 'tapered')
   taperStartFromTop?: number
@@ -215,10 +216,9 @@ export interface TrestleParams {
 export interface SlatParams {
   enabled: boolean
   count: number           // Number of slats per end panel
-  width: number           // Width of each slat
+  width: number           // Width of each slat (default 2")
   thickness: number       // Thickness of each slat
-  topGap: number          // Gap between apron bottom and slat top
-  bottomGap: number       // Gap between stretcher top and slat bottom
+  spacing: number         // Gap between slats (default 1")
   sides: {
     front: boolean        // Slats on front panel
     back: boolean         // Slats on back panel

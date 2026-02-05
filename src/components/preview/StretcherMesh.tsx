@@ -376,7 +376,7 @@ export default function StretcherMesh({
             polygonOffsetFactor={1}
             polygonOffsetUnits={1}
           />
-          <Edges threshold={15} color="#8B7355" />
+          <Edges threshold={15} color="#5C4A3A" />
         </mesh>
       ))}
     </group>

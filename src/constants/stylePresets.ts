@@ -169,7 +169,8 @@ export const FARMHOUSE_PRESET: StylePreset = {
       chamfer: 0.125,  // Legacy: slight chamfer for hand-friendly edges
       chamferLongEdges: true,
       chamferFoot: true,
-      chamferSize: 0.25,  // 1/4" chamfer around bottom of legs
+      chamferSize: 0.25,  // 1/4" chamfer on long edges
+      footChamferSize: 0.5,  // 1/2" chamfer around bottom of legs
       insetFromEdge: 0,
       foot: 'none'
     },
@@ -362,14 +363,16 @@ export const MISSION_PRESET: StylePreset = {
       style: 'square',
       thickness: 3,  // Classic 3x3 Mission legs
       chamfer: 0.0625,  // Subtle chamfer on corners
+      chamferFoot: true,  // Chamfered foot detail
+      footChamferSize: 0.5,  // 1/2" foot chamfer
       insetFromEdge: 0,
       foot: 'none'
     },
     aprons: {
-      height: 4.5,  // Taller aprons to frame slat panels
+      height: 4,  // Match stretcher height for clean lines
       thickness: 0.875,
-      bottomProfile: 'straight',  // Clean, simple profile
-      setback: 0.125,  // Slight setback from leg face
+      bottomProfile: 'straight',
+      setback: 0.125,
       sides: { front: true, back: true, left: true, right: true }
     },
     stretchers: {
@@ -377,17 +380,16 @@ export const MISSION_PRESET: StylePreset = {
       style: 'ends',  // Only end stretchers - classic Mission
       heightFromFloor: 4,
       sideHeightFromFloor: 4,
-      width: 3,  // Tall stretcher to anchor slat panel
+      width: 4,  // Match apron height for symmetry
       thickness: 0.875
     },
     slats: {
       enabled: true,
-      count: 11,  // More slats for proper spacing
-      width: 0.5,  // 1/2" wide slats
-      thickness: 0.375,  // 3/8" thick
-      topGap: 0.375,  // Small gap below apron
-      bottomGap: 0.375,  // Small gap above stretcher
-      sides: { front: false, back: false, left: true, right: true }  // Only on ends
+      count: 5,  // Classic Mission uses odd numbers
+      width: 2,  // 2" wide slats
+      thickness: 0.5,  // 1/2" thick
+      spacing: 1,  // 1" between slats
+      sides: { front: false, back: false, left: true, right: true }
     },
     joinery: {
       legApronJoint: 'mortise-tenon',

@@ -118,6 +118,7 @@ export type TableBuilderAction =
   | { type: 'SET_LEG_PARAM'; key: keyof LegParams; value: unknown }
   | { type: 'SET_APRON_PARAM'; key: keyof ApronParams; value: unknown }
   | { type: 'SET_STRETCHER_PARAM'; key: keyof StretcherParams; value: unknown }
+  | { type: 'SET_SLAT_PARAM'; key: keyof SlatParams; value: unknown }
   | { type: 'SET_TRESTLE_PARAM'; key: keyof TrestleParams; value: unknown }
   | { type: 'SET_DRAWER_PARAM'; key: keyof import('./table').DrawerParams; value: unknown }
   | { type: 'SET_JOINERY_PARAM'; key: keyof JoineryParams; value: unknown }

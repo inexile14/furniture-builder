@@ -63,9 +63,9 @@ export default function LegMesh({ position, x, z, legParams, height, color, yOff
 
       case 'square':
       default: {
-        const chamferSize = legParams.chamferSize || legParams.chamfer || 0
         const chamferFoot = legParams.chamferFoot || false
-        return createSquareLegGeometry(thickness, height, chamferSize, chamferFoot)
+        const footChamferSize = legParams.footChamferSize ?? 0.5  // Default 0.5" foot chamfer
+        return createSquareLegGeometry(thickness, height, footChamferSize, chamferFoot)
       }
     }
   }, [legParams, height, position])
@@ -514,80 +514,28 @@ function createSquareLegGeometry(
   )
 
   // Chamfer faces (4 sides, connecting outer edge to inset bottom)
-  // Front chamfer
+  // Each chamfer face shares its corner edges with adjacent chamfer faces,
+  // creating a closed geometry without needing separate corner triangles.
+
+  // Front chamfer (-Z face)
   addQuad(
     [-hS, yBottomChamfer, -hS], [-hS + c, yBottom, -hS + c],
     [hS - c, yBottom, -hS + c], [hS, yBottomChamfer, -hS]
   )
-  // Right chamfer
+  // Right chamfer (+X face)
   addQuad(
     [hS, yBottomChamfer, -hS], [hS - c, yBottom, -hS + c],
     [hS - c, yBottom, hS - c], [hS, yBottomChamfer, hS]
   )
-  // Back chamfer
+  // Back chamfer (+Z face)
   addQuad(
     [hS, yBottomChamfer, hS], [hS - c, yBottom, hS - c],
     [-hS + c, yBottom, hS - c], [-hS, yBottomChamfer, hS]
   )
-  // Left chamfer
+  // Left chamfer (-X face)
   addQuad(
     [-hS, yBottomChamfer, hS], [-hS + c, yBottom, hS - c],
     [-hS + c, yBottom, -hS + c], [-hS, yBottomChamfer, -hS]
-  )
-
-  // Corner chamfer triangles (4 corners)
-  function addTri(p0: [number, number, number], p1: [number, number, number], p2: [number, number, number]) {
-    vertices.push(...p0, ...p1, ...p2)
-    indices.push(idx, idx + 1, idx + 2)
-    idx += 3
-  }
-
-  // Front-left corner
-  addTri(
-    [-hS, yBottomChamfer, -hS],
-    [-hS, yBottomChamfer, -hS + c],
-    [-hS + c, yBottom, -hS + c]
-  )
-  addTri(
-    [-hS, yBottomChamfer, -hS],
-    [-hS + c, yBottom, -hS + c],
-    [-hS + c, yBottomChamfer, -hS]
-  )
-
-  // Front-right corner
-  addTri(
-    [hS, yBottomChamfer, -hS],
-    [hS - c, yBottom, -hS + c],
-    [hS, yBottomChamfer, -hS + c]
-  )
-  addTri(
-    [hS, yBottomChamfer, -hS],
-    [hS - c, yBottomChamfer, -hS],
-    [hS - c, yBottom, -hS + c]
-  )
-
-  // Back-right corner
-  addTri(
-    [hS, yBottomChamfer, hS],
-    [hS, yBottomChamfer, hS - c],
-    [hS - c, yBottom, hS - c]
-  )
-  addTri(
-    [hS, yBottomChamfer, hS],
-    [hS - c, yBottom, hS - c],
-    [hS - c, yBottomChamfer, hS]
-  )
-
-  // Back-left corner
-  addTri(
-    [-hS, yBottomChamfer, hS],
-    [-hS + c, yBottom, hS - c],
-    [-hS, yBottomChamfer, hS - c]
-  )
-  addTri(
-    [-hS, yBottomChamfer, hS],
-    [-hS + c, yBottomChamfer, hS],
-    [-hS + c, yBottom, hS - c]
   )
 
   const geometry = new THREE.BufferGeometry()

@@ -80,6 +80,7 @@ export default function ControlPanel() {
     legs: false,
     aprons: false,
     stretchers: false,
+    slats: false,
     material: false
   })
 
@@ -193,7 +194,7 @@ export default function ControlPanel() {
             value={params.top.thickness}
             onChange={(v) => dispatch({ type: 'SET_TOP_PARAM', key: 'thickness', value: v })}
             min={0.75}
-            max={2}
+            max={3}
             step={0.125}
             unit="in"
           />
@@ -235,8 +236,8 @@ export default function ControlPanel() {
                 })
               }}
               min={0.5}
-              max={4}
-              step={0.125}
+              max={8}
+              step={0.25}
               unit="in"
             />
             <NumberInput
@@ -250,8 +251,8 @@ export default function ControlPanel() {
                 })
               }}
               min={0.5}
-              max={4}
-              step={0.125}
+              max={12}
+              step={0.25}
               unit="in"
             />
           </div>
@@ -360,10 +361,41 @@ export default function ControlPanel() {
             value={params.legs.thickness}
             onChange={(v) => dispatch({ type: 'SET_LEG_PARAM', key: 'thickness', value: v })}
             min={1.25}
-            max={params.style === 'farmhouse' ? 5 : 3}
+            max={5}
             step={0.125}
             unit="in"
           />
+
+          {/* Square leg options */}
+          {params.legs.style === 'square' && (
+            <>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="chamferFoot"
+                  checked={params.legs.chamferFoot || false}
+                  onChange={(e) => dispatch({ type: 'SET_LEG_PARAM', key: 'chamferFoot', value: e.target.checked })}
+                  className="rounded border-workshop-300 text-workshop-600 focus:ring-workshop-500"
+                />
+                <label htmlFor="chamferFoot" className="text-sm text-workshop-700">
+                  Chamfer foot
+                </label>
+              </div>
+
+              {/* Foot chamfer size - only show when chamferFoot is enabled */}
+              {params.legs.chamferFoot && (
+                <NumberInput
+                  label="Foot Chamfer Size"
+                  value={params.legs.footChamferSize ?? 0.5}
+                  onChange={(v) => dispatch({ type: 'SET_LEG_PARAM', key: 'footChamferSize', value: v })}
+                  min={0.125}
+                  max={Math.min(params.legs.thickness / 2 - 0.25, 2)}
+                  step={0.0625}
+                  unit="in"
+                />
+              )}
+            </>
+          )}
 
           {/* Conditional leg parameters based on style */}
           {params.legs.style === 'tapered' && (
@@ -446,8 +478,8 @@ export default function ControlPanel() {
             label="Height"
             value={params.aprons.height}
             onChange={(v) => dispatch({ type: 'SET_APRON_PARAM', key: 'height', value: v })}
-            min={3}
-            max={6}
+            min={2}
+            max={8}
             step={0.25}
             unit="in"
           />
@@ -455,8 +487,8 @@ export default function ControlPanel() {
             label="Thickness"
             value={params.aprons.thickness}
             onChange={(v) => dispatch({ type: 'SET_APRON_PARAM', key: 'thickness', value: v })}
-            min={0.75}
-            max={1}
+            min={0.5}
+            max={1.5}
             step={0.125}
             unit="in"
           />
@@ -550,7 +582,7 @@ export default function ControlPanel() {
                 value={params.stretchers.width}
                 onChange={(v) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'width', value: v })}
                 min={1}
-                max={4}
+                max={6}
                 step={0.25}
                 unit="in"
               />
@@ -558,7 +590,7 @@ export default function ControlPanel() {
                 label="Stretcher Thickness"
                 value={params.stretchers.thickness}
                 onChange={(v) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'thickness', value: v })}
-                min={0.75}
+                min={0.5}
                 max={2}
                 step={0.125}
                 unit="in"
@@ -567,6 +599,70 @@ export default function ControlPanel() {
           )}
         </div>
       </CollapsibleSection>
+
+      {/* Slats (Mission style) */}
+      {params.slats && (
+        <CollapsibleSection
+          title="Slats"
+          isOpen={openSections.slats}
+          onToggle={() => toggleSection('slats')}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="slats-enabled"
+                checked={params.slats.enabled}
+                onChange={(e) => dispatch({ type: 'SET_SLAT_PARAM', key: 'enabled', value: e.target.checked })}
+                className="w-4 h-4 text-workshop-600 rounded border-workshop-300 focus:ring-workshop-500"
+              />
+              <label htmlFor="slats-enabled" className="text-sm text-workshop-700">
+                Include Slats
+              </label>
+            </div>
+
+            {params.slats.enabled && (
+              <>
+                <NumberInput
+                  label="Number of Slats"
+                  value={params.slats.count}
+                  onChange={(v) => dispatch({ type: 'SET_SLAT_PARAM', key: 'count', value: v })}
+                  min={3}
+                  max={15}
+                  step={1}
+                />
+                <NumberInput
+                  label="Slat Width"
+                  value={params.slats.width}
+                  onChange={(v) => dispatch({ type: 'SET_SLAT_PARAM', key: 'width', value: v })}
+                  min={0.5}
+                  max={4}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Slat Spacing"
+                  value={params.slats.spacing}
+                  onChange={(v) => dispatch({ type: 'SET_SLAT_PARAM', key: 'spacing', value: v })}
+                  min={0.5}
+                  max={3}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Slat Thickness"
+                  value={params.slats.thickness}
+                  onChange={(v) => dispatch({ type: 'SET_SLAT_PARAM', key: 'thickness', value: v })}
+                  min={0.25}
+                  max={1}
+                  step={0.125}
+                  unit="in"
+                />
+              </>
+            )}
+          </div>
+        </CollapsibleSection>
+      )}
 
       {/* Material */}
       <CollapsibleSection
