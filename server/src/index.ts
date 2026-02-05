@@ -15,13 +15,24 @@ const server = Fastify({
 
 async function main() {
   // CORS for frontend (supports multiple origins for dev + production)
-  const allowedOrigins = [
-    'http://localhost:5173',
-    process.env.FRONTEND_URL,
-  ].filter(Boolean) as string[]
-
   await server.register(cors, {
-    origin: allowedOrigins,
+    origin: (origin, cb) => {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return cb(null, true)
+
+      // Allow localhost for development
+      if (origin.includes('localhost')) return cb(null, true)
+
+      // Allow all vercel.app domains
+      if (origin.includes('vercel.app')) return cb(null, true)
+
+      // Allow specific frontend URL if set
+      if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+        return cb(null, true)
+      }
+
+      cb(new Error('Not allowed by CORS'), false)
+    },
     credentials: true,
   })
 
