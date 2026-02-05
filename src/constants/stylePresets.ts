@@ -350,21 +350,21 @@ export const MISSION_PRESET: StylePreset = {
   displayName: 'Mission',
   description: 'Arts & Crafts style with sturdy square legs, vertical slats, and strong geometric lines.',
   suggestedDimensions: {
-    dining: { length: 72, width: 42, height: 30 }  // Classic Mission proportions
+    dining: { length: 84, width: 42, height: 30 }  // Classic Mission proportions
   },
   defaults: {
     top: {
       thickness: 1.125,  // Substantial but not too thick
       edgeProfile: 'square',  // Clean square edge
       breadboardEnds: false,
-      overhang: { sides: 2, ends: 2.5 }  // Generous overhang
+      overhang: { sides: 2, ends: 10 }  // 2" sides, 10" ends
     },
     legs: {
       style: 'square',
       thickness: 3,  // Classic 3x3 Mission legs
       chamfer: 0.0625,  // Subtle chamfer on corners
       chamferFoot: true,  // Chamfered foot detail
-      footChamferSize: 0.5,  // 1/2" foot chamfer
+      footChamferSize: 0.3125,  // 5/16" foot chamfer
       insetFromEdge: 0,
       foot: 'none'
     },
