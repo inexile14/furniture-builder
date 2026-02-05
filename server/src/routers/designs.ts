@@ -1,7 +1,18 @@
 import { z } from 'zod'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { router, protectedProcedure, publicProcedure } from '../trpc.js'
 import { designs, users } from '../db/schema.js'
+
+// Ensure user exists in database (creates if not present)
+async function ensureUserExists(db: any, userId: string) {
+  await db
+    .insert(users)
+    .values({
+      id: userId,
+      email: `${userId}@placeholder.clerk`, // Webhook will update with real email
+    })
+    .onConflictDoNothing({ target: users.id })
+}
 
 // Schema for table parameters (matches frontend TableParams)
 const tableParamsSchema = z.object({
@@ -73,6 +84,9 @@ export const designRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Ensure user exists (handles case where webhook hasn't run yet)
+      await ensureUserExists(ctx.db, ctx.auth.userId)
+
       const result = await ctx.db
         .insert(designs)
         .values({
