@@ -313,6 +313,36 @@ export default function StretcherMesh({
         }
         break
       }
+
+      case 'ends': {
+        // Only end stretchers (left and right) - classic Mission style
+        // No front/back stretchers, leaving long sides open
+        if (isInsideTaper) {
+          const sideGeo = createAngledStretcherGeometry(shortStretcherLength, width, thickness, taperAngleSide, taperAngleSide)
+          result.push({
+            geometry: sideGeo.clone(),
+            position: [-legCenterX, sideStretcherY, 0],
+            rotation: [0, Math.PI / 2, 0]
+          })
+          result.push({
+            geometry: sideGeo.clone(),
+            position: [legCenterX, sideStretcherY, 0],
+            rotation: [0, Math.PI / 2, 0]
+          })
+        } else {
+          result.push({
+            geometry: shortGeo.clone(),
+            position: [-legCenterX, sideStretcherY, 0],
+            rotation: [0, 0, 0]
+          })
+          result.push({
+            geometry: shortGeo.clone(),
+            position: [legCenterX, sideStretcherY, 0],
+            rotation: [0, 0, 0]
+          })
+        }
+        break
+      }
     }
 
     return result

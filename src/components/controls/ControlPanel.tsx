@@ -505,23 +505,14 @@ export default function ControlPanel() {
                   onChange={(e) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'style', value: e.target.value })}
                   className="input-field"
                 >
-                  <option value="box">Box</option>
+                  <option value="box">Box (4 sides)</option>
+                  <option value="ends">Ends Only (Mission)</option>
                   <option value="H">H-Stretcher</option>
                 </select>
               </div>
-              <NumberInput
-                label={params.stretchers.style === 'box' ? 'Front/Back Height' : 'Height from Floor'}
-                value={params.stretchers.heightFromFloor}
-                onChange={(v) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'heightFromFloor', value: v })}
-                min={4}
-                max={12}
-                step={0.5}
-                unit="in"
-              />
-              {/* Side stretcher height option for box style */}
-              {params.stretchers.style === 'box' && (
+              {params.stretchers.style === 'ends' ? (
                 <NumberInput
-                  label="Side Height"
+                  label="Height from Floor"
                   value={params.stretchers.sideHeightFromFloor ?? params.stretchers.heightFromFloor}
                   onChange={(v) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'sideHeightFromFloor', value: v })}
                   min={4}
@@ -529,6 +520,30 @@ export default function ControlPanel() {
                   step={0.5}
                   unit="in"
                 />
+              ) : (
+                <>
+                  <NumberInput
+                    label={params.stretchers.style === 'box' ? 'Front/Back Height' : 'Height from Floor'}
+                    value={params.stretchers.heightFromFloor}
+                    onChange={(v) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'heightFromFloor', value: v })}
+                    min={4}
+                    max={12}
+                    step={0.5}
+                    unit="in"
+                  />
+                  {/* Side stretcher height option for box style */}
+                  {params.stretchers.style === 'box' && (
+                    <NumberInput
+                      label="Side Height"
+                      value={params.stretchers.sideHeightFromFloor ?? params.stretchers.heightFromFloor}
+                      onChange={(v) => dispatch({ type: 'SET_STRETCHER_PARAM', key: 'sideHeightFromFloor', value: v })}
+                      min={4}
+                      max={14}
+                      step={0.5}
+                      unit="in"
+                    />
+                  )}
+                </>
               )}
               <NumberInput
                 label="Stretcher Height"

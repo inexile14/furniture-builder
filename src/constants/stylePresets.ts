@@ -360,7 +360,7 @@ export const MISSION_PRESET: StylePreset = {
     },
     legs: {
       style: 'square',
-      thickness: 2.5,  // Medium-weight square legs
+      thickness: 3,  // Classic 3x3 Mission legs
       chamfer: 0.0625,  // Subtle chamfer on corners
       insetFromEdge: 0,
       foot: 'none'
@@ -373,10 +373,10 @@ export const MISSION_PRESET: StylePreset = {
       sides: { front: true, back: true, left: true, right: true }
     },
     stretchers: {
-      enabled: true,  // End stretchers only
-      style: 'box',
-      heightFromFloor: 4,  // Lower position for end stretchers
-      sideHeightFromFloor: 4,  // Same height - only ends will show due to slat config
+      enabled: true,
+      style: 'ends',  // Only end stretchers - classic Mission
+      heightFromFloor: 4,
+      sideHeightFromFloor: 4,
       width: 3,  // Tall stretcher to anchor slat panel
       thickness: 0.875
     },

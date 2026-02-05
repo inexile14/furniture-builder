@@ -20,7 +20,7 @@ export type ChamferEdge = 'top' | 'bottom' | 'both'
 
 export type ApronProfile = 'straight' | 'arched' | 'scalloped' | 'serpentine'
 
-export type StretcherStyle = 'box' | 'H' | 'none'
+export type StretcherStyle = 'box' | 'H' | 'ends' | 'none'
 
 export type JointType = 'mortise-tenon' | 'domino' | 'dowel' | 'pocket-screw' | 'through-tenon' | 'half-lap'
 
