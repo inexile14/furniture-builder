@@ -5,6 +5,8 @@
 export * from './limits'
 export * from './materials'
 export * from './stylePresets'
+export * from './joinery'
+export * from './rendering'
 
 // =============================================================================
 // 3D PREVIEW COLORS
@@ -105,11 +107,11 @@ export const DEFAULT_TABLE_PARAMS: TableParams = {
     footDadoDepth: 0.5,
     footDadoInset: 2,
 
-    // Head - wider but not as wide as feet (26")
-    headLength: 24,
-    headHeight: 1.5,
-    headWidth: 3.5,        // Matches legThickness/footWidth
-    headBevelAngle: 15,
+    // Shoulder - matches feet by default
+    shoulderLength: 26,        // Same as footLength
+    shoulderHeight: 3.5,       // Same as footHeight
+    shoulderWidth: 3.5,        // Same as footWidth
+    shoulderBevelAngle: 12,    // Same as footBevelAngle
 
     // Stretcher
     stretcherHeight: 4,    // Doubled from 2

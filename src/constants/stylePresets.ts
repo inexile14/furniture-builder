@@ -154,7 +154,7 @@ export const FARMHOUSE_PRESET: StylePreset = {
     top: {
       thickness: 1.5,  // Substantial but not overly heavy
       edgeProfile: 'square',
-      breadboardEnds: true,
+      breadboardEnds: false,
       breadboard: {
         width: 3,
         thickness: 2,
@@ -165,7 +165,7 @@ export const FARMHOUSE_PRESET: StylePreset = {
     },
     legs: {
       style: 'square',  // Default to square; turned/ornamental as future options
-      thickness: 4,  // Gold standard: 4" square legs
+      thickness: 3.5,  // 3.5" square legs
       chamfer: 0.125,  // Legacy: slight chamfer for hand-friendly edges
       chamferLongEdges: true,
       chamferFoot: true,
@@ -289,8 +289,11 @@ export const TRESTLE_PRESET: StylePreset = {
   defaults: {
     top: {
       thickness: 1.25,
-      edgeProfile: 'square',
-      breadboardEnds: true,
+      edgeProfile: 'chamfered',
+      chamferEdge: 'bottom',
+      chamferSize: 0.8125,  // 13/16"
+      chamferAngle: 45,
+      breadboardEnds: false,
       breadboard: {
         width: 2.5,
         thickness: 1.25,

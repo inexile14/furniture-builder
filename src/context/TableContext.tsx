@@ -7,6 +7,7 @@ import React, { createContext, useContext, useReducer, useMemo, useEffect } from
 import type { TableParams, TableBuilderState, TableBuilderAction, StylePreset, ApronProfile } from '../types'
 import { DEFAULT_TABLE_PARAMS, STYLE_PRESETS, TABLE_TYPE_LIMITS } from '../constants'
 import { validateTableParams } from '../engine/validation'
+import { loadStyleOverrides } from '../utils/styleOverrides'
 
 // =============================================================================
 // INITIAL STATE
@@ -19,8 +20,17 @@ const initialState: TableBuilderState = {
   validation: { valid: true, errors: [], warnings: [] },
   selectedComponent: null,
   isExploded: false,
+  isTransparent: false,
   showJoinery: true,
-  previewQuality: 'medium'
+  previewQuality: 'medium',
+  renderSettings: {
+    style: 'shaded-edges',
+    finish: 'satin',
+    showShadows: true,
+    showAmbientOcclusion: false,
+    showReflections: false,
+    backgroundColor: '#f5f5f0'
+  }
 }
 
 // =============================================================================
@@ -198,6 +208,13 @@ function tableReducer(state: TableBuilderState, action: TableBuilderAction): Tab
       }
     }
 
+    case 'TOGGLE_TRANSPARENT': {
+      return {
+        ...state,
+        isTransparent: !state.isTransparent
+      }
+    }
+
     case 'TOGGLE_JOINERY_PREVIEW': {
       return {
         ...state,
@@ -226,6 +243,36 @@ function tableReducer(state: TableBuilderState, action: TableBuilderAction): Tab
       }
     }
 
+    case 'SET_RENDER_STYLE': {
+      return {
+        ...state,
+        renderSettings: {
+          ...state.renderSettings,
+          style: action.style
+        }
+      }
+    }
+
+    case 'SET_WOOD_FINISH': {
+      return {
+        ...state,
+        renderSettings: {
+          ...state.renderSettings,
+          finish: action.finish
+        }
+      }
+    }
+
+    case 'SET_RENDER_SETTINGS': {
+      return {
+        ...state,
+        renderSettings: {
+          ...state.renderSettings,
+          ...action.settings
+        }
+      }
+    }
+
     default:
       return state
   }
@@ -238,15 +285,30 @@ function tableReducer(state: TableBuilderState, action: TableBuilderAction): Tab
 function applyStylePreset(params: TableParams, preset: StylePreset): TableParams {
   const tableAdjustments = preset.tableTypeAdjustments[params.tableType] || {}
 
+  // Check for custom overrides saved by admin
+  const styleOverrides = loadStyleOverrides()
+  const customDefaults = styleOverrides[preset.name] as Partial<TableParams> | undefined
+
   // Get suggested dimensions for this style + table type, or preserve existing
   const suggestedDims = preset.suggestedDimensions?.[params.tableType]
   const length = suggestedDims?.length ?? params.length
   const width = suggestedDims?.width ?? params.width
   const height = suggestedDims?.height ?? params.height
 
+  // Use custom defaults if available, otherwise use preset defaults
+  const effectiveDefaults = {
+    top: customDefaults?.top ?? preset.defaults.top,
+    legs: customDefaults?.legs ?? preset.defaults.legs,
+    aprons: customDefaults?.aprons ?? preset.defaults.aprons,
+    stretchers: customDefaults?.stretchers ?? preset.defaults.stretchers,
+    slats: customDefaults?.slats ?? preset.defaults.slats,
+    joinery: customDefaults?.joinery ?? preset.defaults.joinery,
+    trestle: customDefaults?.trestle,
+  }
+
   // When switching styles, apply style's suggested dimensions if available
-  // Everything else comes from the new style preset
-  const presetSides = preset.defaults.aprons?.sides
+  // Everything else comes from the effective defaults (custom or built-in)
+  const presetSides = effectiveDefaults.aprons?.sides
   const adjustmentSides = (tableAdjustments.aprons as { sides?: { front?: boolean; back?: boolean; left?: boolean; right?: boolean } })?.sides
   const apronSides = {
     front: adjustmentSides?.front ?? presetSides?.front ?? true,
@@ -262,74 +324,74 @@ function applyStylePreset(params: TableParams, preset: StylePreset): TableParams
     width,
     height,
     primaryWood: params.primaryWood,
-    // Everything else from preset
+    // Everything else from effective defaults (custom or built-in)
     style: preset.name,
     top: {
-      thickness: preset.defaults.top?.thickness || 1,
-      edgeProfile: preset.defaults.top?.edgeProfile || 'square',
-      cornerRadius: preset.defaults.top?.cornerRadius,
-      breadboardEnds: preset.defaults.top?.breadboardEnds || false,
-      breadboard: preset.defaults.top?.breadboard,
-      overhang: preset.defaults.top?.overhang as { sides: number; ends: number } || { sides: 1, ends: 1 },
-      chamferEdge: preset.defaults.top?.chamferEdge,
-      chamferSize: preset.defaults.top?.chamferSize,
-      chamferAngle: preset.defaults.top?.chamferAngle
+      thickness: effectiveDefaults.top?.thickness || 1,
+      edgeProfile: effectiveDefaults.top?.edgeProfile || 'square',
+      cornerRadius: effectiveDefaults.top?.cornerRadius,
+      breadboardEnds: effectiveDefaults.top?.breadboardEnds || false,
+      breadboard: effectiveDefaults.top?.breadboard,
+      overhang: effectiveDefaults.top?.overhang as { sides: number; ends: number } || { sides: 1, ends: 1 },
+      chamferEdge: effectiveDefaults.top?.chamferEdge,
+      chamferSize: effectiveDefaults.top?.chamferSize,
+      chamferAngle: effectiveDefaults.top?.chamferAngle
     },
     legs: {
-      style: preset.defaults.legs?.style || 'square',
-      thickness: preset.defaults.legs?.thickness || 2,
-      insetFromEdge: preset.defaults.legs?.insetFromEdge || 0,
-      chamfer: preset.defaults.legs?.chamfer || 0,
-      chamferFoot: preset.defaults.legs?.chamferFoot || false,
-      footChamferSize: preset.defaults.legs?.footChamferSize,
-      taperStartFromTop: preset.defaults.legs?.taperStartFromTop,
-      taperEndDimension: preset.defaults.legs?.taperEndDimension,
-      taperSides: preset.defaults.legs?.taperSides,
-      splayAngle: preset.defaults.legs?.splayAngle,
-      turnProfile: preset.defaults.legs?.turnProfile,
-      pommelLength: preset.defaults.legs?.pommelLength,
-      maxDiameter: preset.defaults.legs?.maxDiameter,
-      minDiameter: preset.defaults.legs?.minDiameter,
-      foot: preset.defaults.legs?.foot || 'none'
+      style: effectiveDefaults.legs?.style || 'square',
+      thickness: effectiveDefaults.legs?.thickness || 2,
+      insetFromEdge: effectiveDefaults.legs?.insetFromEdge || 0,
+      chamfer: effectiveDefaults.legs?.chamfer || 0,
+      chamferFoot: effectiveDefaults.legs?.chamferFoot || false,
+      footChamferSize: effectiveDefaults.legs?.footChamferSize,
+      taperStartFromTop: effectiveDefaults.legs?.taperStartFromTop,
+      taperEndDimension: effectiveDefaults.legs?.taperEndDimension,
+      taperSides: effectiveDefaults.legs?.taperSides,
+      splayAngle: effectiveDefaults.legs?.splayAngle,
+      turnProfile: effectiveDefaults.legs?.turnProfile,
+      pommelLength: effectiveDefaults.legs?.pommelLength,
+      maxDiameter: effectiveDefaults.legs?.maxDiameter,
+      minDiameter: effectiveDefaults.legs?.minDiameter,
+      foot: effectiveDefaults.legs?.foot || 'none'
     },
     aprons: {
-      height: (tableAdjustments.aprons as { height?: number })?.height ?? preset.defaults.aprons?.height ?? 4,
-      thickness: (tableAdjustments.aprons as { thickness?: number })?.thickness ?? preset.defaults.aprons?.thickness ?? 0.875,
-      bottomProfile: ((tableAdjustments.aprons as { bottomProfile?: ApronProfile })?.bottomProfile ?? preset.defaults.aprons?.bottomProfile ?? 'straight') as ApronProfile,
-      archHeight: preset.defaults.aprons?.archHeight,
-      setback: (tableAdjustments.aprons as { setback?: number })?.setback ?? preset.defaults.aprons?.setback ?? 0,
+      height: (tableAdjustments.aprons as { height?: number })?.height ?? effectiveDefaults.aprons?.height ?? 4,
+      thickness: (tableAdjustments.aprons as { thickness?: number })?.thickness ?? effectiveDefaults.aprons?.thickness ?? 0.875,
+      bottomProfile: ((tableAdjustments.aprons as { bottomProfile?: ApronProfile })?.bottomProfile ?? effectiveDefaults.aprons?.bottomProfile ?? 'straight') as ApronProfile,
+      archHeight: effectiveDefaults.aprons?.archHeight,
+      setback: (tableAdjustments.aprons as { setback?: number })?.setback ?? effectiveDefaults.aprons?.setback ?? 0,
       sides: apronSides
     },
     stretchers: {
-      enabled: preset.defaults.stretchers?.enabled || false,
-      style: preset.defaults.stretchers?.style || 'none',
-      heightFromFloor: preset.defaults.stretchers?.heightFromFloor || 6,
-      sideHeightFromFloor: preset.defaults.stretchers?.sideHeightFromFloor,
-      width: preset.defaults.stretchers?.width || 1.5,
-      thickness: preset.defaults.stretchers?.thickness || 0.875,
-      centerStretcher: preset.defaults.stretchers?.centerStretcher
+      enabled: effectiveDefaults.stretchers?.enabled || false,
+      style: effectiveDefaults.stretchers?.style || 'none',
+      heightFromFloor: effectiveDefaults.stretchers?.heightFromFloor || 6,
+      sideHeightFromFloor: effectiveDefaults.stretchers?.sideHeightFromFloor,
+      width: effectiveDefaults.stretchers?.width || 1.5,
+      thickness: effectiveDefaults.stretchers?.thickness || 0.875,
+      centerStretcher: effectiveDefaults.stretchers?.centerStretcher
     },
-    slats: preset.defaults.slats ? {
-      enabled: preset.defaults.slats.enabled || false,
-      count: preset.defaults.slats.count || 5,
-      width: preset.defaults.slats.width || 2,
-      thickness: preset.defaults.slats.thickness || 0.5,
-      spacing: preset.defaults.slats.spacing || 1,
-      sides: preset.defaults.slats.sides || { front: false, back: false, left: true, right: true }
+    slats: effectiveDefaults.slats ? {
+      enabled: effectiveDefaults.slats.enabled || false,
+      count: effectiveDefaults.slats.count || 5,
+      width: effectiveDefaults.slats.width || 2,
+      thickness: effectiveDefaults.slats.thickness || 0.5,
+      spacing: effectiveDefaults.slats.spacing || 1,
+      sides: effectiveDefaults.slats.sides || { front: false, back: false, left: true, right: true }
     } : undefined,
-    trestle: params.trestle,  // Preserve trestle params
+    trestle: effectiveDefaults.trestle ?? params.trestle,  // Use custom trestle if set, else preserve
     joinery: {
-      legApronJoint: preset.defaults.joinery?.legApronJoint || 'mortise-tenon',
-      cornerJoint: preset.defaults.joinery?.cornerJoint || 'mitered',
-      haunched: preset.defaults.joinery?.haunched || false,
-      tenonThicknessRatio: preset.defaults.joinery?.tenonThicknessRatio || 0.333,
-      tenonLengthRatio: preset.defaults.joinery?.tenonLengthRatio || 0.65,
-      tenonShoulderWidth: preset.defaults.joinery?.tenonShoulderWidth || 0.25,
-      mortiseSetback: preset.defaults.joinery?.mortiseSetback || 0.1875,
-      topAttachment: preset.defaults.joinery?.topAttachment || 'buttons',
-      topAttachmentSpacing: preset.defaults.joinery?.topAttachmentSpacing || 12,
-      stretcherJoint: preset.defaults.joinery?.stretcherJoint,
-      showJoineryInPreview: preset.defaults.joinery?.showJoineryInPreview ?? true
+      legApronJoint: effectiveDefaults.joinery?.legApronJoint || 'mortise-tenon',
+      cornerJoint: effectiveDefaults.joinery?.cornerJoint || 'mitered',
+      haunched: effectiveDefaults.joinery?.haunched || false,
+      tenonThicknessRatio: effectiveDefaults.joinery?.tenonThicknessRatio || 0.333,
+      tenonLengthRatio: effectiveDefaults.joinery?.tenonLengthRatio || 0.65,
+      tenonShoulderWidth: effectiveDefaults.joinery?.tenonShoulderWidth || 0.25,
+      mortiseSetback: effectiveDefaults.joinery?.mortiseSetback || 0.1875,
+      topAttachment: effectiveDefaults.joinery?.topAttachment || 'buttons',
+      topAttachmentSpacing: effectiveDefaults.joinery?.topAttachmentSpacing || 12,
+      stretcherJoint: effectiveDefaults.joinery?.stretcherJoint,
+      showJoineryInPreview: effectiveDefaults.joinery?.showJoineryInPreview ?? true
     }
   }
 }

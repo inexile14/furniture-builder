@@ -96,6 +96,38 @@ import type { Style, TopParams, LegParams, ApronParams, StretcherParams, SlatPar
 export type { Style, TopParams, LegParams, ApronParams, StretcherParams, SlatParams, TrestleParams, JoineryParams, TableParams }
 
 // =============================================================================
+// RENDER STYLE TYPES
+// =============================================================================
+
+/**
+ * Available render styles (inspired by SketchUp)
+ */
+export type RenderStyle =
+  | 'wireframe'      // Lines only, no fills
+  | 'hidden-line'    // White faces, black edges (blueprint feel)
+  | 'shaded'         // Solid colors, basic lighting
+  | 'shaded-edges'   // Current style with edge lines (default)
+  | 'realistic'      // PBR materials, wood textures, shadows
+  | 'xray'           // Semi-transparent, shows internal joinery
+
+/**
+ * Wood finish options for realistic mode
+ */
+export type WoodFinish = 'raw' | 'oiled' | 'satin' | 'semi-gloss' | 'gloss'
+
+/**
+ * Render settings for the preview
+ */
+export interface RenderSettings {
+  style: RenderStyle
+  finish: WoodFinish
+  showShadows: boolean
+  showAmbientOcclusion: boolean
+  showReflections: boolean
+  backgroundColor: string
+}
+
+// =============================================================================
 // STATE TYPES
 // =============================================================================
 
@@ -106,8 +138,10 @@ export interface TableBuilderState {
   validation: ValidationResult
   selectedComponent: string | null
   isExploded: boolean
+  isTransparent: boolean
   showJoinery: boolean
   previewQuality: 'low' | 'medium' | 'high'
+  renderSettings: RenderSettings
 }
 
 export type TableBuilderAction =
@@ -126,7 +160,11 @@ export type TableBuilderAction =
   | { type: 'APPLY_PRESET'; preset: StylePreset }
   | { type: 'RESET_TO_DEFAULTS' }
   | { type: 'TOGGLE_EXPLODED' }
+  | { type: 'TOGGLE_TRANSPARENT' }
   | { type: 'TOGGLE_JOINERY_PREVIEW' }
   | { type: 'SELECT_COMPONENT'; component: string | null }
   | { type: 'SET_PREVIEW_QUALITY'; quality: 'low' | 'medium' | 'high' }
   | { type: 'SET_VALIDATION'; validation: ValidationResult }
+  | { type: 'SET_RENDER_STYLE'; style: RenderStyle }
+  | { type: 'SET_WOOD_FINISH'; finish: WoodFinish }
+  | { type: 'SET_RENDER_SETTINGS'; settings: Partial<RenderSettings> }

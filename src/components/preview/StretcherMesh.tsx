@@ -16,6 +16,7 @@ interface StretcherMeshProps {
   legCenterZ: number
   legHeight: number
   color: string
+  opacity?: number
 }
 
 /**
@@ -177,7 +178,8 @@ export default function StretcherMesh({
   legCenterX,
   legCenterZ,
   legHeight,
-  color
+  color,
+  opacity = 1
 }: StretcherMeshProps) {
   const { style, heightFromFloor, width, thickness } = stretcherParams
 
@@ -375,6 +377,8 @@ export default function StretcherMesh({
             polygonOffset={true}
             polygonOffsetFactor={1}
             polygonOffsetUnits={1}
+            transparent={opacity < 1}
+            opacity={opacity}
           />
           <Edges threshold={15} color="#5C4A3A" />
         </mesh>

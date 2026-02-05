@@ -5,12 +5,13 @@
 
 import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Environment, PerspectiveCamera, GizmoHelper, GizmoViewcube } from '@react-three/drei'
+import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
 import * as THREE from 'three'
 import { useTable } from '../../context/TableContext'
 import TableModel from './TableModel'
 import ViewControls from './ViewControls'
-import { COLORS } from '../../constants'
+import RenderStyleSelector from './RenderStyleSelector'
+import { RENDER_STYLE_CONFIGS, LIGHTING_PRESETS } from '../../constants/rendering'
 
 function LoadingFallback() {
   return (
@@ -23,7 +24,11 @@ function LoadingFallback() {
 
 function Scene() {
   const { state } = useTable()
-  const { params, isExploded } = state
+  const { params, isExploded, isTransparent, showJoinery, renderSettings } = state
+
+  // Get render style config
+  const styleConfig = RENDER_STYLE_CONFIGS[renderSettings.style]
+  const lightingPreset = LIGHTING_PRESETS[styleConfig.lighting]
 
   // Scene bounds - table is centered at origin (X=0, Z=0)
   // Table sits on floor (Y=0) with top at Y=height
@@ -34,6 +39,10 @@ function Scene() {
   // Camera distance calculation - base + multiplier so larger tables appear larger
   const maxDimension = Math.max(params.length, params.width, params.height)
   const cameraDistance = 40 + maxDimension * 0.9
+
+  // Environment preset based on lighting
+  const envPreset = lightingPreset.environment === 'sunset' ? 'sunset' :
+                    lightingPreset.environment === 'studio' ? 'studio' : 'warehouse'
 
   return (
     <>
@@ -48,20 +57,46 @@ function Scene() {
         fov={35}
       />
 
-      {/* Lights - balanced for good edge definition */}
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[30, 50, 30]} intensity={0.7} />
-      <directionalLight position={[-20, 30, -20]} intensity={0.4} />
-      <directionalLight position={[0, -10, 0]} intensity={0.15} />
+      {/* Lights - based on lighting preset */}
+      <ambientLight intensity={lightingPreset.ambient} />
+      {lightingPreset.lights.map((light, i) => {
+        if (light.type === 'directional') {
+          return (
+            <directionalLight
+              key={i}
+              position={light.position}
+              intensity={light.intensity}
+              color={light.color}
+              castShadow={light.castShadow}
+            />
+          )
+        }
+        if (light.type === 'point') {
+          return (
+            <pointLight
+              key={i}
+              position={light.position}
+              intensity={light.intensity}
+              color={light.color}
+            />
+          )
+        }
+        return null
+      })}
 
-      {/* Environment for subtle reflections */}
-      <Environment preset="studio" />
+      {/* Environment for reflections - only for shaded/realistic modes */}
+      {styleConfig.lighting !== 'basic' && (
+        <Environment preset={envPreset} />
+      )}
 
       {/* Table Model */}
       <Suspense fallback={<LoadingFallback />}>
         <TableModel
           params={params}
           isExploded={isExploded}
+          isTransparent={isTransparent || renderSettings.style === 'xray'}
+          showJoinery={showJoinery}
+          renderSettings={renderSettings}
         />
       </Suspense>
 
@@ -82,30 +117,28 @@ function Scene() {
         target={[centerX, tableHeight * 0.35, centerZ]}
       />
 
-      {/* Orientation Gizmo - click faces/edges/corners to snap camera view */}
-      <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
-        <GizmoViewcube
-          color="#e8e2d9"
-          hoverColor="#c9a86c"
-          textColor="#5c4a3a"
-          strokeColor="#8b7355"
-          opacity={0.9}
-          faces={['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']}
-        />
-      </GizmoHelper>
     </>
   )
 }
 
 export default function TablePreview() {
+  const { state } = useTable()
+  const { renderSettings } = state
+
+  // Hidden line mode uses white background
+  const bgColor = renderSettings.style === 'hidden-line' ? '#ffffff' : renderSettings.backgroundColor
+
   return (
-    <div className="relative w-full h-full" style={{ background: COLORS.background }}>
+    <div className="relative w-full h-full" style={{ background: bgColor }}>
       <Canvas
         dpr={[1, 2]}
         gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <Scene />
       </Canvas>
+
+      {/* Render style selector */}
+      <RenderStyleSelector />
 
       {/* View controls overlay */}
       <ViewControls />

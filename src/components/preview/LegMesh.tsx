@@ -1,12 +1,22 @@
 /**
  * Parametric Table Builder - Leg Mesh Component
  * Supports square, tapered, turned, and splayed legs
+ * Uses Manifold for robust mortise cavity subtraction
  */
 
 import { useMemo } from 'react'
 import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 import type { LegParams, LegPosition } from '../../types'
+import type { CalculatedJoinery } from '../../types/joinery'
+import { useLegWithMortises, useGeometryWithMortises, useSplayedLegWithMortises, useChamferedLegWithMortises } from '../../hooks/useManifold'
+
+interface ApronSides {
+  front: boolean
+  back: boolean
+  left: boolean
+  right: boolean
+}
 
 interface LegMeshProps {
   position: LegPosition
@@ -16,9 +26,29 @@ interface LegMeshProps {
   height: number
   color: string
   yOffset?: number  // Additional Y offset for splayed legs to raise top to meet tabletop
+  // Joinery props
+  showMortises?: boolean
+  calculatedJoinery?: CalculatedJoinery
+  apronSides?: ApronSides
+  apronY?: number  // Y position of apron center in world coords
+  // Render style
+  opacity?: number
 }
 
-export default function LegMesh({ position, x, z, legParams, height, color, yOffset = 0 }: LegMeshProps) {
+export default function LegMesh({
+  position,
+  x,
+  z,
+  legParams,
+  height,
+  color,
+  yOffset = 0,
+  showMortises = false,
+  calculatedJoinery,
+  apronSides,
+  apronY,
+  opacity = 1
+}: LegMeshProps) {
   // Animation
   const spring = useSpring({
     position: [x, height / 2 + yOffset, z] as [number, number, number],
@@ -90,26 +120,138 @@ export default function LegMesh({ position, x, z, legParams, height, color, yOff
     return rotations[position]
   }, [legParams.style, legParams.splayAngle, position])
 
-  // Create edges geometry for visible outlines
-  const edgesGeometry = useMemo(() => {
-    return new THREE.EdgesGeometry(geometry, 15)
-  }, [geometry])
+  // Calculate mortise positions for Manifold CSG subtraction
+  const mortiseSubtractions = useMemo(() => {
+    if (!showMortises || !calculatedJoinery || !apronSides || apronY === undefined) {
+      return []
+    }
+
+    const subtractions: Array<{
+      position: [number, number, number]
+      size: [number, number, number]  // [width, height, depth] for boxGeometry
+    }> = []
+
+    const legThick = legParams.thickness
+    const halfLeg = legThick / 2
+    const slotWidth = calculatedJoinery.mortiseWidth    // ~0.3"
+    const slotHeight = calculatedJoinery.mortiseHeight  // ~3.5"
+    // Depth goes into the leg - use realistic depth
+    const depth = Math.min(calculatedJoinery.mortiseDepth, legThick * 0.6)
+
+    const mortiseY = apronY - height / 2
+
+    const faceMap: Record<LegPosition, Array<{ apron: keyof ApronSides; face: '+X' | '-X' | '+Z' | '-Z' }>> = {
+      FL: [{ apron: 'front', face: '+X' }, { apron: 'left', face: '+Z' }],
+      FR: [{ apron: 'front', face: '-X' }, { apron: 'right', face: '+Z' }],
+      BL: [{ apron: 'back', face: '+X' }, { apron: 'left', face: '-Z' }],
+      BR: [{ apron: 'back', face: '-X' }, { apron: 'right', face: '-Z' }]
+    }
+
+    for (const { apron, face } of faceMap[position]) {
+      if (!apronSides[apron]) continue
+
+      // Position the subtraction box so it cuts into the leg from the outside
+      // The box needs to extend slightly outside the leg surface to ensure clean cut
+      const overshoot = 0.1
+
+      if (face === '+X') {
+        subtractions.push({
+          position: [halfLeg - depth / 2 + overshoot, mortiseY, 0],
+          size: [depth + overshoot, slotHeight, slotWidth]
+        })
+      } else if (face === '-X') {
+        subtractions.push({
+          position: [-halfLeg + depth / 2 - overshoot, mortiseY, 0],
+          size: [depth + overshoot, slotHeight, slotWidth]
+        })
+      } else if (face === '+Z') {
+        subtractions.push({
+          position: [0, mortiseY, halfLeg - depth / 2 + overshoot],
+          size: [slotWidth, slotHeight, depth + overshoot]
+        })
+      } else { // '-Z'
+        subtractions.push({
+          position: [0, mortiseY, -halfLeg + depth / 2 - overshoot],
+          size: [slotWidth, slotHeight, depth + overshoot]
+        })
+      }
+    }
+
+    return subtractions
+  }, [showMortises, calculatedJoinery, apronSides, apronY, position, legParams.thickness, height])
+
+
+  // Material props shared between CSG and non-CSG rendering
+  const materialProps = {
+    color,
+    roughness: 0.7,
+    metalness: 0.05,
+    flatShading: true,
+    side: THREE.DoubleSide,  // CSG can flip normals, so render both sides
+    transparent: opacity < 1,
+    opacity,
+  }
+
+  // Manifold CSG for mortises
+  const isSquareLeg = legParams.style === 'square'
+  const isTaperedLeg = legParams.style === 'tapered'
+  const isSplayedLeg = legParams.style === 'splayed'
+  const hasChamferedFoot = legParams.chamferFoot && (legParams.footChamferSize ?? 0.5) > 0
+  const legSize = legParams.thickness
+  const hasMortises = mortiseSubtractions.length > 0
+
+  // For square legs without chamfer: use box Manifold to cut mortises
+  // (Tapered legs use useGeometryWithMortises to preserve their taper shape)
+  const canUseBoxForMortises = isSquareLeg && !hasChamferedFoot
+  const boxManifoldGeometry = useLegWithMortises(
+    legSize,
+    height,
+    legSize,
+    mortiseSubtractions,
+    canUseBoxForMortises && hasMortises
+  )
+
+  // For square legs WITH chamfered feet: use chamfered Manifold geometry
+  const chamferedManifoldGeometry = useChamferedLegWithMortises(
+    legSize,
+    height,
+    legParams.footChamferSize ?? 0.5,
+    mortiseSubtractions,
+    isSquareLeg && hasChamferedFoot && hasMortises
+  )
+
+  // For splayed legs: use specialized Manifold geometry with Y-compensation
+  const splayedManifoldGeometry = useSplayedLegWithMortises(
+    legParams.thickness,
+    legParams.taperEndDimension || legParams.thickness * 0.6,
+    height,
+    legParams.splayAngle || 8,
+    position,
+    mortiseSubtractions,
+    isSplayedLeg && hasMortises
+  )
+
+  // For tapered and turned legs: cut mortises from the custom geometry
+  const customManifoldGeometry = useGeometryWithMortises(
+    geometry,
+    mortiseSubtractions,
+    (isTaperedLeg || (!canUseBoxForMortises && !isSplayedLeg && !(isSquareLeg && hasChamferedFoot))) && hasMortises
+  )
+
+  // Use Manifold geometry if available, otherwise fall back to regular geometry
+  const finalGeometry = boxManifoldGeometry || chamferedManifoldGeometry || splayedManifoldGeometry || customManifoldGeometry || geometry
+
+  // Edges for the final geometry
+  const finalEdgesGeometry = useMemo(() => {
+    return new THREE.EdgesGeometry(finalGeometry, 15)
+  }, [finalGeometry])
 
   return (
     <animated.group position={spring.position} rotation={rotation}>
-      <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial
-          color={color}
-          roughness={0.7}
-          metalness={0.05}
-          flatShading={true}
-          side={THREE.DoubleSide}
-          polygonOffset={true}
-          polygonOffsetFactor={1}
-          polygonOffsetUnits={1}
-        />
+      <mesh geometry={finalGeometry} castShadow receiveShadow>
+        <meshStandardMaterial {...materialProps} />
       </mesh>
-      <lineSegments geometry={edgesGeometry}>
+      <lineSegments geometry={finalEdgesGeometry}>
         <lineBasicMaterial color="#5C4A3A" />
       </lineSegments>
     </animated.group>
@@ -216,9 +358,9 @@ function createTaperedLegGeometry(
   ) {
     // Add 4 vertices
     vertices.push(...p0, ...p1, ...p2, ...p3)
-    // Two triangles: 0-1-2 and 0-2-3
-    indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2)
-    indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 3)
+    // Reversed winding for outward-facing normals: 0-2-1 and 0-3-2
+    indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 1)
+    indices.push(vertexIndex, vertexIndex + 3, vertexIndex + 2)
     vertexIndex += 4
   }
 
@@ -230,7 +372,7 @@ function createTaperedLegGeometry(
     [corners.top.v3[0], yTop, corners.top.v3[1]]
   )
 
-  // Bottom cap (reverse winding)
+  // Bottom cap (reversed vertex order for downward-facing normal)
   addQuad(
     [corners.bottom.v3[0], yBottom, corners.bottom.v3[1]],
     [corners.bottom.v2[0], yBottom, corners.bottom.v2[1]],
@@ -377,8 +519,9 @@ function createSplayedLegGeometry(
     p3: [number, number, number]
   ) {
     vertices.push(...p0, ...p1, ...p2, ...p3)
-    indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2)
-    indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 3)
+    // Reversed winding for outward-facing normals: 0-2-1 and 0-3-2
+    indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 1)
+    indices.push(vertexIndex, vertexIndex + 3, vertexIndex + 2)
     vertexIndex += 4
   }
 
@@ -470,8 +613,9 @@ function createSquareLegGeometry(
     p3: [number, number, number]
   ) {
     vertices.push(...p0, ...p1, ...p2, ...p3)
-    indices.push(idx, idx + 1, idx + 2)
-    indices.push(idx, idx + 2, idx + 3)
+    // Reversed triangle winding for correct outward-facing normals
+    indices.push(idx, idx + 2, idx + 1)
+    indices.push(idx, idx + 3, idx + 2)
     idx += 4
   }
 
@@ -485,10 +629,10 @@ function createSquareLegGeometry(
     [-hS, yTop, -hS], [hS, yTop, -hS], [hS, yTop, hS], [-hS, yTop, hS]
   )
 
-  // Bottom face (inset by chamfer)
+  // Bottom face (inset by chamfer) - reversed winding for outward normal (pointing -Y)
   addQuad(
-    [-hS + c, yBottom, hS - c], [hS - c, yBottom, hS - c],
-    [hS - c, yBottom, -hS + c], [-hS + c, yBottom, -hS + c]
+    [-hS + c, yBottom, -hS + c], [hS - c, yBottom, -hS + c],
+    [hS - c, yBottom, hS - c], [-hS + c, yBottom, hS - c]
   )
 
   // Side faces (from top to chamfer start)
@@ -516,26 +660,27 @@ function createSquareLegGeometry(
   // Chamfer faces (4 sides, connecting outer edge to inset bottom)
   // Each chamfer face shares its corner edges with adjacent chamfer faces,
   // creating a closed geometry without needing separate corner triangles.
+  // Winding is reversed from original to get outward-facing normals.
 
-  // Front chamfer (-Z face)
-  addQuad(
-    [-hS, yBottomChamfer, -hS], [-hS + c, yBottom, -hS + c],
-    [hS - c, yBottom, -hS + c], [hS, yBottomChamfer, -hS]
-  )
-  // Right chamfer (+X face)
+  // Front chamfer (-Z face) - normal should point toward -Z
   addQuad(
     [hS, yBottomChamfer, -hS], [hS - c, yBottom, -hS + c],
-    [hS - c, yBottom, hS - c], [hS, yBottomChamfer, hS]
+    [-hS + c, yBottom, -hS + c], [-hS, yBottomChamfer, -hS]
   )
-  // Back chamfer (+Z face)
+  // Right chamfer (+X face) - normal should point toward +X
   addQuad(
     [hS, yBottomChamfer, hS], [hS - c, yBottom, hS - c],
-    [-hS + c, yBottom, hS - c], [-hS, yBottomChamfer, hS]
+    [hS - c, yBottom, -hS + c], [hS, yBottomChamfer, -hS]
   )
-  // Left chamfer (-X face)
+  // Back chamfer (+Z face) - normal should point toward +Z
   addQuad(
     [-hS, yBottomChamfer, hS], [-hS + c, yBottom, hS - c],
-    [-hS + c, yBottom, -hS + c], [-hS, yBottomChamfer, -hS]
+    [hS - c, yBottom, hS - c], [hS, yBottomChamfer, hS]
+  )
+  // Left chamfer (-X face) - normal should point toward -X
+  addQuad(
+    [-hS, yBottomChamfer, -hS], [-hS + c, yBottom, -hS + c],
+    [-hS + c, yBottom, hS - c], [-hS, yBottomChamfer, hS]
   )
 
   const geometry = new THREE.BufferGeometry()
@@ -547,7 +692,11 @@ function createSquareLegGeometry(
 }
 
 /**
- * Create turned leg geometry using lathe
+ * Create turned leg geometry using lathe with cone caps
+ *
+ * Note: For Manifold CSG to work, the geometry must be watertight (closed solid).
+ * We add tiny-radius cone points at top and bottom to close the geometry.
+ * Using a very small non-zero radius avoids degenerate triangles.
  */
 function createTurnedLegGeometry(
   maxDiameter: number,
@@ -559,6 +708,12 @@ function createTurnedLegGeometry(
   const heightSegments = 32
 
   const points: THREE.Vector2[] = []
+
+  // Tiny radius for cone caps (small enough to be invisible, large enough to avoid degeneracy)
+  const tinyRadius = 0.001
+
+  // Bottom cone cap point (tiny radius, below bottom)
+  points.push(new THREE.Vector2(tinyRadius, -height / 2 - tinyRadius))
 
   for (let i = 0; i <= heightSegments; i++) {
     const t = i / heightSegments
@@ -588,6 +743,9 @@ function createTurnedLegGeometry(
 
     points.push(new THREE.Vector2(radius, y))
   }
+
+  // Top cone cap point (tiny radius, above top)
+  points.push(new THREE.Vector2(tinyRadius, height / 2 + tinyRadius))
 
   return new THREE.LatheGeometry(points, segments)
 }

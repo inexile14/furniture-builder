@@ -197,11 +197,11 @@ export interface TrestleParams {
   footDadoDepth: number      // Depth of dado underneath foot
   footDadoInset: number      // How far dado starts from each end
 
-  // Head (top piece, supports table top)
-  headLength: number         // Length of head (along table width)
-  headHeight: number         // Height of head
-  headWidth: number          // Width of head (along table length)
-  headBevelAngle: number     // Angle of bevel on head sides (degrees)
+  // Shoulder (top piece, supports table top)
+  shoulderLength: number     // Length of shoulder (along table width)
+  shoulderHeight: number     // Height of shoulder
+  shoulderWidth: number      // Width of shoulder (along table length)
+  shoulderBevelAngle: number // Angle of bevel on shoulder sides (degrees)
 
   // Stretcher (connects the two leg assemblies)
   stretcherHeight: number    // Height of stretcher (vertical dimension)

@@ -3,4 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ['manifold-3d']  // Don't pre-bundle WASM module
+  },
+  assetsInclude: ['**/*.wasm'],  // Include WASM as assets
 })

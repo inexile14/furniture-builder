@@ -7,6 +7,8 @@ import { useTable } from '../../context/TableContext'
 import { STYLE_PRESETS, TABLE_TYPE_LIMITS, WOOD_SPECIES } from '../../constants'
 import type { Style, TableType, ChamferEdge } from '../../types'
 import NumberInput from './NumberInput'
+import { useAdmin } from '../../hooks/useAdmin'
+import { saveStyleOverride } from '../../utils/styleOverrides'
 
 // =============================================================================
 // COLLAPSIBLE SECTION COMPONENT
@@ -70,6 +72,8 @@ export default function ControlPanel() {
   const { state, dispatch } = useTable()
   const { params } = state
   const limits = TABLE_TYPE_LIMITS[params.tableType]
+  const { isAdmin } = useAdmin()
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
 
   // Track which sections are open (only Style expanded by default)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -81,6 +85,7 @@ export default function ControlPanel() {
     aprons: false,
     stretchers: false,
     slats: false,
+    trestle: false,
     material: false
   })
 
@@ -88,6 +93,9 @@ export default function ControlPanel() {
   const [keepOverhangIdentical, setKeepOverhangIdentical] = useState(
     params.top.overhang.sides === params.top.overhang.ends
   )
+
+  // Track whether shoulders should match feet (for trestle)
+  const [shouldersMatchFeet, setShouldersMatchFeet] = useState(true)
 
   // Sync keepOverhangIdentical when style changes
   useEffect(() => {
@@ -125,6 +133,36 @@ export default function ControlPanel() {
         <p className="text-xs text-workshop-500 mt-2">
           {STYLE_PRESETS[params.style].description}
         </p>
+
+        {/* Admin: Set Defaults Button */}
+        {isAdmin && (
+          <div className="mt-3 pt-3 border-t border-workshop-200">
+            <button
+              onClick={() => {
+                try {
+                  saveStyleOverride(params.style, params)
+                  setCopyFeedback('✓ Saved!')
+                  setTimeout(() => setCopyFeedback(null), 2000)
+                } catch {
+                  setCopyFeedback('Error')
+                  setTimeout(() => setCopyFeedback(null), 2000)
+                }
+              }}
+              className="w-full px-3 py-2 text-xs font-medium rounded border border-green-500 bg-green-50 text-green-800 hover:bg-green-100 transition-colors"
+            >
+              {copyFeedback || `Save as ${STYLE_PRESETS[params.style].displayName} defaults`}
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('furniture-builder-style-overrides')
+                window.location.reload()
+              }}
+              className="w-full mt-1 px-2 py-1 text-xs text-red-500 hover:text-red-700 transition-colors"
+            >
+              Clear all custom defaults
+            </button>
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* Table Type */}
@@ -467,7 +505,8 @@ export default function ControlPanel() {
         </div>
       </CollapsibleSection>
 
-      {/* Apron Parameters */}
+      {/* Apron Parameters (not for trestle) */}
+      {params.style !== 'trestle' && (
       <CollapsibleSection
         title="Aprons"
         isOpen={openSections.aprons}
@@ -507,8 +546,10 @@ export default function ControlPanel() {
           </div>
         </div>
       </CollapsibleSection>
+      )}
 
-      {/* Stretchers */}
+      {/* Stretchers (not for trestle - trestle has its own stretcher in Trestle Components) */}
+      {params.style !== 'trestle' && (
       <CollapsibleSection
         title="Stretchers"
         isOpen={openSections.stretchers}
@@ -599,6 +640,7 @@ export default function ControlPanel() {
           )}
         </div>
       </CollapsibleSection>
+      )}
 
       {/* Slats (Mission style) */}
       {params.slats && (
@@ -660,6 +702,208 @@ export default function ControlPanel() {
                 />
               </>
             )}
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* Trestle (only for trestle style) */}
+      {params.style === 'trestle' && params.trestle && (
+        <CollapsibleSection
+          title="Trestle Components"
+          isOpen={openSections.trestle}
+          onToggle={() => toggleSection('trestle')}
+        >
+          <div className="space-y-4">
+            {/* Feet */}
+            <div className="border-b border-workshop-200 pb-3">
+              <h4 className="text-sm font-medium text-workshop-600 mb-2">Feet</h4>
+              <div className="space-y-2">
+                <NumberInput
+                  label="Length"
+                  value={params.trestle.footLength}
+                  onChange={(v) => {
+                    dispatch({ type: 'SET_TRESTLE_PARAM', key: 'footLength', value: v })
+                    if (shouldersMatchFeet) {
+                      dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderLength', value: v })
+                    }
+                  }}
+                  min={16}
+                  max={36}
+                  step={1}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Height"
+                  value={params.trestle.footHeight}
+                  onChange={(v) => {
+                    dispatch({ type: 'SET_TRESTLE_PARAM', key: 'footHeight', value: v })
+                    if (shouldersMatchFeet) {
+                      dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderHeight', value: v })
+                    }
+                  }}
+                  min={2}
+                  max={6}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Width"
+                  value={params.trestle.footWidth}
+                  onChange={(v) => {
+                    dispatch({ type: 'SET_TRESTLE_PARAM', key: 'footWidth', value: v })
+                    if (shouldersMatchFeet) {
+                      dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderWidth', value: v })
+                    }
+                  }}
+                  min={2}
+                  max={6}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Bevel Angle"
+                  value={params.trestle.footBevelAngle}
+                  onChange={(v) => {
+                    dispatch({ type: 'SET_TRESTLE_PARAM', key: 'footBevelAngle', value: v })
+                    if (shouldersMatchFeet) {
+                      dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderBevelAngle', value: v })
+                    }
+                  }}
+                  min={0}
+                  max={30}
+                  step={1}
+                  unit="deg"
+                />
+              </div>
+            </div>
+
+            {/* Shoulders */}
+            <div className="border-b border-workshop-200 pb-3">
+              <h4 className="text-sm font-medium text-workshop-600 mb-2">Shoulders</h4>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="shouldersMatchFeet"
+                    checked={shouldersMatchFeet}
+                    onChange={(e) => {
+                      setShouldersMatchFeet(e.target.checked)
+                      if (e.target.checked) {
+                        // Sync shoulders to match feet
+                        dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderLength', value: params.trestle!.footLength })
+                        dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderHeight', value: params.trestle!.footHeight })
+                        dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderWidth', value: params.trestle!.footWidth })
+                        dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderBevelAngle', value: params.trestle!.footBevelAngle })
+                      }
+                    }}
+                    className="rounded border-workshop-300 text-workshop-600 focus:ring-workshop-500"
+                  />
+                  <label htmlFor="shouldersMatchFeet" className="text-sm text-workshop-700">
+                    Match feet dimensions
+                  </label>
+                </div>
+
+                {!shouldersMatchFeet && (
+                  <>
+                    <NumberInput
+                      label="Length"
+                      value={params.trestle.shoulderLength}
+                      onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderLength', value: v })}
+                      min={16}
+                      max={32}
+                      step={1}
+                      unit="in"
+                    />
+                    <NumberInput
+                      label="Height"
+                      value={params.trestle.shoulderHeight}
+                      onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderHeight', value: v })}
+                      min={1}
+                      max={4}
+                      step={0.25}
+                      unit="in"
+                    />
+                    <NumberInput
+                      label="Width"
+                      value={params.trestle.shoulderWidth}
+                      onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderWidth', value: v })}
+                      min={2}
+                      max={6}
+                      step={0.25}
+                      unit="in"
+                    />
+                    <NumberInput
+                      label="Bevel Angle"
+                      value={params.trestle.shoulderBevelAngle}
+                      onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'shoulderBevelAngle', value: v })}
+                      min={0}
+                      max={30}
+                      step={1}
+                      unit="deg"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Trestle Leg */}
+            <div className="border-b border-workshop-200 pb-3">
+              <h4 className="text-sm font-medium text-workshop-600 mb-2">Leg</h4>
+              <div className="space-y-2">
+                <NumberInput
+                  label="Width"
+                  value={params.trestle.legWidth}
+                  onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'legWidth', value: v })}
+                  min={4}
+                  max={10}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Thickness"
+                  value={params.trestle.legThickness}
+                  onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'legThickness', value: v })}
+                  min={2}
+                  max={5}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Inset from End"
+                  value={params.trestle.legInset}
+                  onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'legInset', value: v })}
+                  min={4}
+                  max={16}
+                  step={0.5}
+                  unit="in"
+                />
+              </div>
+            </div>
+
+            {/* Stretcher */}
+            <div>
+              <h4 className="text-sm font-medium text-workshop-600 mb-2">Stretcher</h4>
+              <div className="space-y-2">
+                <NumberInput
+                  label="Height"
+                  value={params.trestle.stretcherHeight}
+                  onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'stretcherHeight', value: v })}
+                  min={2}
+                  max={6}
+                  step={0.25}
+                  unit="in"
+                />
+                <NumberInput
+                  label="Thickness"
+                  value={params.trestle.stretcherThickness}
+                  onChange={(v) => dispatch({ type: 'SET_TRESTLE_PARAM', key: 'stretcherThickness', value: v })}
+                  min={0.75}
+                  max={2}
+                  step={0.125}
+                  unit="in"
+                />
+              </div>
+            </div>
           </div>
         </CollapsibleSection>
       )}

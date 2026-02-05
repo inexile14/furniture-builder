@@ -8,6 +8,7 @@ import { useSpring, animated } from '@react-spring/three'
 import * as THREE from 'three'
 import type { TableParams, LegPosition } from '../../types'
 import { WOOD_SPECIES } from '../../constants'
+import { calculateJoinery } from '../../engine/calculations/joinery'
 import TopMesh from './TopMesh'
 import LegMesh from './LegMesh'
 import ApronMesh from './ApronMesh'
@@ -105,14 +106,42 @@ function computeLegFaceNormal(
 interface TableModelProps {
   params: TableParams
   isExploded: boolean
+  isTransparent?: boolean
+  showJoinery?: boolean
+  renderSettings?: import('../../types').RenderSettings
 }
 
-export default function TableModel({ params, isExploded }: TableModelProps) {
+export default function TableModel({
+  params,
+  isExploded,
+  isTransparent = false,
+  showJoinery = true,
+  renderSettings
+}: TableModelProps) {
   // Get wood color
   const woodColor = useMemo(() => {
     const species = WOOD_SPECIES[params.primaryWood]
     return species?.color || '#C9A86C'
   }, [params.primaryWood])
+
+  // Material opacity for transparent/x-ray mode
+  const opacity = isTransparent ? 0.35 : 1.0
+
+  // Calculate joinery dimensions
+  const calculatedJoinery = useMemo(() => {
+    return calculateJoinery(params)
+  }, [params])
+
+  // Determine joinery visibility
+  // Blind mortises/tenons: visible in exploded or transparent mode
+  // Through tenons: always visible (they show on outside of leg)
+  // CSG mortises: always visible when joinery toggled (opening shows on leg surface)
+  const showBlindJoinery = isExploded || isTransparent
+  const isThrough = params.joinery.legApronJoint === 'through-tenon'
+  const shouldShowJoinery = showJoinery && (showBlindJoinery || isThrough)
+
+  // Mortises use Manifold CSG for all leg types - the opening is visible even when assembled
+  const shouldShowMortises = showJoinery
 
   // Core dimensions
   const legHeight = params.height - params.top.thickness
@@ -258,6 +287,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
           chamferEdge={params.top.chamferEdge}
           chamferSize={params.top.chamferSize}
           chamferAngle={params.top.chamferAngle}
+          opacity={opacity}
         />
       </animated.group>
 
@@ -269,6 +299,9 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
           tableHeight={params.height}
           topThickness={params.top.thickness}
           color={woodColor}
+          showJoinery={showJoinery}
+          explosionOffset={isExploded ? 6 : 0}
+          opacity={opacity}
         />
       ) : (
         /* Standard leg-based table */
@@ -293,6 +326,11 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
                 height={legHeight}
                 color={woodColor}
                 yOffset={splayAdjustments.legYRaise}
+                showMortises={shouldShowMortises}
+                calculatedJoinery={calculatedJoinery}
+                apronSides={params.aprons.sides}
+                apronY={apronY}
+                opacity={opacity}
               />
             )
           })}
@@ -312,6 +350,9 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               profile={params.aprons.bottomProfile}
               splayAngle={params.legs.style === 'splayed' ? params.legs.splayAngle : 0}
               legFaceNormals={legFaceNormals?.front}
+              showTenons={shouldShowJoinery}
+              calculatedJoinery={calculatedJoinery}
+              opacity={opacity}
             />
           )}
 
@@ -330,6 +371,9 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               profile={params.aprons.bottomProfile}
               splayAngle={params.legs.style === 'splayed' ? params.legs.splayAngle : 0}
               legFaceNormals={legFaceNormals?.back}
+              showTenons={shouldShowJoinery}
+              calculatedJoinery={calculatedJoinery}
+              opacity={opacity}
             />
           )}
 
@@ -349,6 +393,9 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               rotateY={Math.PI / 2}
               splayAngle={params.legs.style === 'splayed' ? params.legs.splayAngle : 0}
               legFaceNormals={legFaceNormals?.left}
+              showTenons={shouldShowJoinery}
+              calculatedJoinery={calculatedJoinery}
+              opacity={opacity}
             />
           )}
 
@@ -368,6 +415,9 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               rotateY={Math.PI / 2}
               splayAngle={params.legs.style === 'splayed' ? params.legs.splayAngle : 0}
               legFaceNormals={legFaceNormals?.right}
+              showTenons={shouldShowJoinery}
+              calculatedJoinery={calculatedJoinery}
+              opacity={opacity}
             />
           )}
 
@@ -380,6 +430,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               legCenterZ={legCenterZ}
               legHeight={legHeight}
               color={woodColor}
+              opacity={opacity}
             />
           )}
 
@@ -463,6 +514,7 @@ export default function TableModel({ params, isExploded }: TableModelProps) {
               </>
             )
           })()}
+
         </>
       )}
     </group>

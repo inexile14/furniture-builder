@@ -19,6 +19,8 @@ interface TopMeshProps {
   chamferEdge?: ChamferEdge
   chamferSize?: number
   chamferAngle?: number
+  // Render style
+  opacity?: number
 }
 
 /**
@@ -486,7 +488,8 @@ export default function TopMesh({
   cornerRadius = 0,
   chamferEdge = 'bottom',
   chamferSize = 0.25,
-  chamferAngle = 45
+  chamferAngle = 45,
+  opacity = 1
 }: TopMeshProps) {
   const geometry = useMemo(() => {
     // For chamfered edges, create custom geometry
@@ -603,6 +606,8 @@ export default function TopMesh({
           polygonOffset={true}
           polygonOffsetFactor={1}
           polygonOffsetUnits={1}
+          transparent={opacity < 1}
+          opacity={opacity}
         />
         {/* Auto-edges for: simple box OR rounded corners with chamfer */}
         {(!hasRoundedCorners && !hasChamfer) && <Edges threshold={15} color="#5C4A3A" />}
@@ -623,10 +628,12 @@ export default function TopMesh({
       {/* Explicit edge lines for chamfered geometry WITHOUT rounded corners */}
       {hasChamfer && !hasRoundedCorners && chamferEdgeData && (
         <>
+          {/* Primary edges (top/bottom rectangles) - normal weight */}
           <Line points={chamferEdgeData.topRect} color="#5C4A3A" lineWidth={1} />
           <Line points={chamferEdgeData.bottomRect} color="#5C4A3A" lineWidth={1} />
+          {/* Chamfer edges - lighter weight for secondary edges */}
           {chamferEdgeData.chamferLines.map((line, i) => (
-            <Line key={`chamfer-${i}`} points={line} color="#5C4A3A" lineWidth={1} />
+            <Line key={`chamfer-${i}`} points={line} color="#8B7355" lineWidth={0.5} />
           ))}
         </>
       )}

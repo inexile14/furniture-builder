@@ -1,9 +1,10 @@
 /**
  * Parametric Table Builder - Trestle Mesh Component
- * Renders trestle table base: two end assemblies (foot + leg + head) connected by a stretcher
+ * Renders trestle table base: two end assemblies (foot + leg + shoulder) connected by a stretcher
  */
 
 import { useMemo } from 'react'
+import { useSpring, animated } from '@react-spring/three'
 import { Edges } from '@react-three/drei'
 import * as THREE from 'three'
 import type { TrestleParams } from '../../types'
@@ -14,6 +15,9 @@ interface TrestleMeshProps {
   tableHeight: number
   topThickness: number
   color: string
+  showJoinery?: boolean
+  explosionOffset?: number
+  opacity?: number
 }
 
 /**
@@ -112,10 +116,10 @@ function createFootGeometry(
 }
 
 /**
- * Create head geometry - mirror of foot (flipped vertically)
+ * Create shoulder geometry - mirror of foot (flipped vertically)
  * Top is flat (meets tabletop), bottom has flat center section then slopes down to ends
  */
-function createHeadGeometry(
+function createShoulderGeometry(
   length: number,      // Along Z axis (table width direction)
   heightAtCenter: number,  // Y dimension at center (tallest point)
   width: number,       // Along X axis - extrusion depth
@@ -172,12 +176,60 @@ function createHeadGeometry(
   return geometry
 }
 
+/**
+ * Create double tenon geometry - two tenons side by side
+ * Tenons extend from Y=0 in the specified direction
+ */
+function createDoubleTenon(
+  tenonThickness: number,  // X dimension of each tenon
+  tenonWidth: number,      // Z dimension of each tenon
+  tenonLength: number,     // Y dimension (how far it extends)
+  spacing: number,         // Distance between tenon centers along Z
+  direction: 'up' | 'down'
+): THREE.BufferGeometry {
+  const ySign = direction === 'up' ? 1 : -1
+
+  // Create two box geometries and merge them
+  const tenon1 = new THREE.BoxGeometry(tenonThickness, tenonLength, tenonWidth)
+  tenon1.translate(0, ySign * tenonLength / 2, -spacing / 2)
+
+  const tenon2 = new THREE.BoxGeometry(tenonThickness, tenonLength, tenonWidth)
+  tenon2.translate(0, ySign * tenonLength / 2, spacing / 2)
+
+  // Merge the two geometries
+  const positions1 = tenon1.getAttribute('position').array as Float32Array
+  const positions2 = tenon2.getAttribute('position').array as Float32Array
+  const index1 = tenon1.getIndex()!.array as Uint16Array
+  const index2 = tenon2.getIndex()!.array as Uint16Array
+
+  const mergedPositions = new Float32Array(positions1.length + positions2.length)
+  mergedPositions.set(positions1, 0)
+  mergedPositions.set(positions2, positions1.length)
+
+  const vertexOffset = positions1.length / 3
+  const mergedIndices = new Uint16Array(index1.length + index2.length)
+  mergedIndices.set(index1, 0)
+  for (let i = 0; i < index2.length; i++) {
+    mergedIndices[index1.length + i] = index2[i] + vertexOffset
+  }
+
+  const merged = new THREE.BufferGeometry()
+  merged.setAttribute('position', new THREE.BufferAttribute(mergedPositions, 3))
+  merged.setIndex(new THREE.BufferAttribute(mergedIndices, 1))
+  merged.computeVertexNormals()
+
+  return merged
+}
+
 export default function TrestleMesh({
   trestleParams,
   tableLength,
   tableHeight,
   topThickness,
-  color
+  color,
+  showJoinery = false,
+  explosionOffset = 0,
+  opacity = 1
 }: TrestleMeshProps) {
   const {
     legWidth,
@@ -189,10 +241,10 @@ export default function TrestleMesh({
     footBevelAngle,
     footDadoDepth,
     footDadoInset,
-    headLength,
-    headHeight,
-    headWidth,
-    headBevelAngle,
+    shoulderLength,
+    shoulderHeight,
+    shoulderWidth,
+    shoulderBevelAngle,
     stretcherHeight,
     stretcherThickness
   } = trestleParams
@@ -203,8 +255,33 @@ export default function TrestleMesh({
   // Leg X positions (center of each leg assembly)
   const legX = (tableLength / 2) - legInset
 
-  // Leg height: total height minus foot and head
-  const legHeight = totalHeight - footHeight - headHeight
+  // Leg height: total height minus foot and shoulder
+  const legHeight = totalHeight - footHeight - shoulderHeight
+
+  // Joinery dimensions based on leg/stretcher sizes
+  const joineryDims = useMemo(() => {
+    // Double tenon for leg-to-foot and leg-to-shoulder
+    // Tenons are oriented along X (legThickness direction), spaced along Z (legWidth direction)
+    const legTenonThickness = legThickness * 0.3  // ~1/3 of leg thickness
+    const legTenonWidth = legWidth * 0.25  // Each tenon is 1/4 of leg width
+    const legTenonLength = 1.5  // How far tenon extends into foot/shoulder
+    const legTenonSpacing = legWidth * 0.4  // Distance between two tenon centers
+
+    // Single tenon for stretcher-to-leg
+    const stretcherTenonThickness = stretcherThickness * 0.35
+    const stretcherTenonWidth = stretcherHeight * 0.7
+    const stretcherTenonLength = legThickness * 0.8  // Through-tenon goes most of the way through leg
+
+    return {
+      legTenonThickness,
+      legTenonWidth,
+      legTenonLength,
+      legTenonSpacing,
+      stretcherTenonThickness,
+      stretcherTenonWidth,
+      stretcherTenonLength
+    }
+  }, [legThickness, legWidth, stretcherThickness, stretcherHeight])
 
   // Create geometries
   const geometries = useMemo(() => {
@@ -220,81 +297,191 @@ export default function TrestleMesh({
     // legWidth goes along Z, legThickness goes along X
     const legGeo = new THREE.BoxGeometry(legThickness, legHeight, legWidth)
 
-    // Head: mirror of foot (flat top, sloped bottom)
+    // Shoulder: mirror of foot (flat top, sloped bottom)
     // Flat section matches leg width
-    const headGeo = createHeadGeometry(headLength, headHeight, headWidth, footBevelAngle, legWidth / 2)
+    const shoulderGeo = createShoulderGeometry(shoulderLength, shoulderHeight, shoulderWidth, shoulderBevelAngle, legWidth / 2)
 
     // Stretcher geometry - spans between the inside faces of the legs
     // Legs are rotated so legThickness is along X axis
     const stretcherLen = (legX * 2) - legThickness
     const stretcherGeo = new THREE.BoxGeometry(stretcherLen, stretcherHeight, stretcherThickness)
 
-    return { footGeo, legGeo, headGeo, stretcherGeo }
+    // Double tenon geometry for leg ends (extends in -Y from bottom, +Y from top)
+    const { legTenonThickness, legTenonWidth, legTenonLength, legTenonSpacing } = joineryDims
+    const legBottomTenonGeo = createDoubleTenon(
+      legTenonThickness, legTenonWidth, legTenonLength, legTenonSpacing, 'down'
+    )
+    const legTopTenonGeo = createDoubleTenon(
+      legTenonThickness, legTenonWidth, legTenonLength, legTenonSpacing, 'up'
+    )
+
+    // Single tenon geometry for stretcher ends
+    const { stretcherTenonThickness, stretcherTenonWidth, stretcherTenonLength } = joineryDims
+    const stretcherTenonGeo = new THREE.BoxGeometry(
+      stretcherTenonLength, stretcherTenonWidth, stretcherTenonThickness
+    )
+
+    return {
+      footGeo, legGeo, shoulderGeo, stretcherGeo,
+      legBottomTenonGeo, legTopTenonGeo, stretcherTenonGeo
+    }
   }, [
     footLength, footHeight, footWidth, footBevelAngle,
     footDadoDepth, footDadoInset,
     legWidth, legHeight, legThickness,
-    headLength, headHeight, headWidth, headBevelAngle,
-    legX, stretcherHeight, stretcherThickness
+    shoulderLength, shoulderHeight, shoulderWidth, shoulderBevelAngle,
+    legX, stretcherHeight, stretcherThickness,
+    joineryDims
   ])
 
-  // Y positions - foot sits on floor, leg sits on foot, head sits on leg
+  // Y positions - foot sits on floor, leg sits on foot, shoulder sits on leg
   const footY = 0  // Foot geometry starts at floor level
   const legY = footHeight + (legHeight / 2)  // Leg is centered (BoxGeometry)
-  const headY = footHeight + legHeight  // Head geometry starts at Y=0, so no offset needed
+  const shoulderY = footHeight + legHeight  // Shoulder geometry starts at Y=0, so no offset needed
 
   // Stretcher at ~55% of the height from floor to bottom of tabletop
   const stretcherY = totalHeight * 0.55
+
+  // Tenon positions
+  const legBottomTenonY = footHeight  // Bottom of leg
+  const legTopTenonY = footHeight + legHeight  // Top of leg
+  // Stretcher tenons extend from each end of the stretcher toward the legs
+  const stretcherLen = (legX * 2) - legThickness
+  const stretcherLeftTenonX = -stretcherLen / 2 - joineryDims.stretcherTenonLength / 2
+  const stretcherRightTenonX = stretcherLen / 2 + joineryDims.stretcherTenonLength / 2
+
+  // Explosion animation springs
+  const springConfig = { mass: 1, tension: 180, friction: 20 }
+
+  // Feet explode downward
+  const footSpring = useSpring({
+    y: footY - explosionOffset * 0.8,
+    config: springConfig
+  })
+
+  // Legs stay in place (center of explosion)
+  const legSpring = useSpring({
+    y: legY,
+    config: springConfig
+  })
+
+  // Shoulders explode upward
+  const shoulderSpring = useSpring({
+    y: shoulderY + explosionOffset * 0.8,
+    config: springConfig
+  })
+
+  // Stretcher explodes forward (in -Z direction)
+  const stretcherSpring = useSpring({
+    z: -explosionOffset * 0.6,
+    config: springConfig
+  })
+
+  // Leg tenons stay attached to the leg (they're part of the leg)
+  // Bottom tenon is at leg bottom, top tenon is at leg top
+  const legBottomTenonSpring = useSpring({
+    y: legBottomTenonY,  // Stays with leg
+    config: springConfig
+  })
+
+  const legTopTenonSpring = useSpring({
+    y: legTopTenonY,  // Stays with leg
+    config: springConfig
+  })
 
   return (
     <group>
       {/* Left end assembly */}
       <group position={[-legX, 0, 0]}>
         {/* Foot */}
-        <mesh geometry={geometries.footGeo} position={[0, footY, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
+        <animated.mesh geometry={geometries.footGeo} position-y={footSpring.y} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
           <Edges threshold={10} color="#8B7355" />
-        </mesh>
+        </animated.mesh>
 
         {/* Leg */}
-        <mesh geometry={geometries.legGeo} position={[0, legY, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
+        <animated.mesh geometry={geometries.legGeo} position-y={legSpring.y} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
           <Edges threshold={10} color="#8B7355" />
-        </mesh>
+        </animated.mesh>
 
-        {/* Head */}
-        <mesh geometry={geometries.headGeo} position={[0, headY, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
+        {/* Leg tenons (double tenon at top and bottom) */}
+        {showJoinery && (
+          <>
+            <animated.mesh geometry={geometries.legBottomTenonGeo} position-y={legBottomTenonSpring.y} castShadow>
+              <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+              <Edges threshold={10} color="#8B7355" />
+            </animated.mesh>
+            <animated.mesh geometry={geometries.legTopTenonGeo} position-y={legTopTenonSpring.y} castShadow>
+              <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+              <Edges threshold={10} color="#8B7355" />
+            </animated.mesh>
+          </>
+        )}
+
+        {/* Shoulder */}
+        <animated.mesh geometry={geometries.shoulderGeo} position-y={shoulderSpring.y} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
           <Edges threshold={10} color="#8B7355" />
-        </mesh>
+        </animated.mesh>
       </group>
 
       {/* Right end assembly */}
       <group position={[legX, 0, 0]}>
         {/* Foot */}
-        <mesh geometry={geometries.footGeo} position={[0, footY, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
+        <animated.mesh geometry={geometries.footGeo} position-y={footSpring.y} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
           <Edges threshold={10} color="#8B7355" />
-        </mesh>
+        </animated.mesh>
 
         {/* Leg */}
-        <mesh geometry={geometries.legGeo} position={[0, legY, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
+        <animated.mesh geometry={geometries.legGeo} position-y={legSpring.y} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
           <Edges threshold={10} color="#8B7355" />
-        </mesh>
+        </animated.mesh>
 
-        {/* Head */}
-        <mesh geometry={geometries.headGeo} position={[0, headY, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
+        {/* Leg tenons (double tenon at top and bottom) */}
+        {showJoinery && (
+          <>
+            <animated.mesh geometry={geometries.legBottomTenonGeo} position-y={legBottomTenonSpring.y} castShadow>
+              <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+              <Edges threshold={10} color="#8B7355" />
+            </animated.mesh>
+            <animated.mesh geometry={geometries.legTopTenonGeo} position-y={legTopTenonSpring.y} castShadow>
+              <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+              <Edges threshold={10} color="#8B7355" />
+            </animated.mesh>
+          </>
+        )}
+
+        {/* Shoulder */}
+        <animated.mesh geometry={geometries.shoulderGeo} position-y={shoulderSpring.y} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
           <Edges threshold={10} color="#8B7355" />
-        </mesh>
+        </animated.mesh>
       </group>
 
       {/* Center stretcher */}
-      <mesh geometry={geometries.stretcherGeo} position={[0, stretcherY, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} />
-        <Edges threshold={10} color="#8B7355" />
-      </mesh>
+      <animated.group position-z={stretcherSpring.z}>
+        <mesh geometry={geometries.stretcherGeo} position={[0, stretcherY, 0]} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+          <Edges threshold={10} color="#8B7355" />
+        </mesh>
+
+        {/* Stretcher tenons (single tenon at each end) */}
+        {showJoinery && (
+          <>
+            <mesh geometry={geometries.stretcherTenonGeo} position={[stretcherLeftTenonX, stretcherY, 0]} castShadow>
+              <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+              <Edges threshold={10} color="#8B7355" />
+            </mesh>
+            <mesh geometry={geometries.stretcherTenonGeo} position={[stretcherRightTenonX, stretcherY, 0]} castShadow>
+              <meshStandardMaterial color={color} roughness={0.7} metalness={0.05} transparent={opacity < 1} opacity={opacity} />
+              <Edges threshold={10} color="#8B7355" />
+            </mesh>
+          </>
+        )}
+      </animated.group>
     </group>
   )
 }
