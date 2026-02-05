@@ -7,3 +7,5 @@ export {
   getJoineryValidationMessage,
   formatJointForPlan
 } from './useJoineryKnowledge'
+
+export { useDesigns, useDesign } from './useDesigns'

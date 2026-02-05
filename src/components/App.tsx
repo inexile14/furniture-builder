@@ -3,14 +3,24 @@
  */
 
 import { useState } from 'react'
+import { useAuth } from '@clerk/clerk-react'
 import { useTable } from '../context/TableContext'
+import { useDesigns } from '../hooks'
 import ControlPanel from './controls/ControlPanel'
 import TablePreview from './preview/TablePreview'
 import ExportPanel from './export/ExportPanel'
+import UserMenu from './auth/UserMenu'
+import SaveDesignModal from './designs/SaveDesignModal'
+import MyDesignsPanel from './designs/MyDesignsPanel'
 
 export default function App() {
-  const { state } = useTable()
+  const { state, dispatch } = useTable()
+  const { isSignedIn } = useAuth()
+  const { designs, isLoading, saveDesign, deleteDesign, isSaving } = useDesigns()
+
   const [showExport, setShowExport] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showMyDesigns, setShowMyDesigns] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Format style name for display
@@ -18,6 +28,17 @@ export default function App() {
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+
+  // Handle saving a design
+  const handleSaveDesign = async (name: string, description?: string) => {
+    await saveDesign(name, state.params, { description })
+  }
+
+  // Handle loading a design
+  const handleLoadDesign = (design: { params: unknown }) => {
+    dispatch({ type: 'SET_PARAMS', params: design.params as typeof state.params })
+    setShowMyDesigns(false)
+  }
 
   return (
     <div className="h-screen bg-workshop-100 text-workshop-900 flex flex-col overflow-hidden">
@@ -32,12 +53,29 @@ export default function App() {
           </span>
         </div>
         <div className="flex items-center gap-4">
+          {isSignedIn && (
+            <>
+              <button
+                onClick={() => setShowSaveModal(true)}
+                className="btn-secondary text-sm"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowMyDesigns(!showMyDesigns)}
+                className="btn-secondary text-sm"
+              >
+                {showMyDesigns ? 'Hide Designs' : 'My Designs'}
+              </button>
+            </>
+          )}
           <button
             onClick={() => setShowExport(!showExport)}
             className="btn-primary text-sm"
           >
             {showExport ? 'Hide Export' : 'Build Package'}
           </button>
+          <UserMenu />
         </div>
       </header>
 
@@ -116,6 +154,19 @@ export default function App() {
             <ExportPanel onClose={() => setShowExport(false)} />
           </aside>
         )}
+
+        {/* Right Panel - My Designs (conditional, fixed width) */}
+        {showMyDesigns && (
+          <aside className="w-80 flex-shrink-0 bg-white border-l border-workshop-200 overflow-y-auto shadow-lg">
+            <MyDesignsPanel
+              designs={designs}
+              isLoading={isLoading}
+              onLoad={handleLoadDesign}
+              onDelete={deleteDesign}
+              onClose={() => setShowMyDesigns(false)}
+            />
+          </aside>
+        )}
       </div>
 
       {/* Footer */}
@@ -127,6 +178,16 @@ export default function App() {
           {state.params.primaryWood.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
         </div>
       </footer>
+
+      {/* Save Design Modal */}
+      {showSaveModal && (
+        <SaveDesignModal
+          params={state.params}
+          onSave={handleSaveDesign}
+          onClose={() => setShowSaveModal(false)}
+          isSaving={isSaving}
+        />
+      )}
     </div>
   )
 }
